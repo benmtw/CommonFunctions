@@ -32,6 +32,18 @@ At ~2.0 GB stored:
 ## Bottom line
 For the current deduplicated domain list size, storage cost is effectively **$0/month** on KV, D1, and R2. Even at very large list sizes (for example ~100M domains), raw storage charges remain low.
 
+## Lookup cost example (1,000 Cloudflare lookups)
+For 1,000 lookup operations, cost is effectively **$0** in normal usage:
+
+- KV reads: 1,000 is below free/ included operation tiers.
+- D1 row reads: 1,000 is below free/ included operation tiers.
+- R2 Class B reads: 1,000 is below free operation tiers.
+- If all 1,000 lookups are cache misses and each triggers one KV write, this is still within the typical daily free write tier.
+
+Notes:
+- This estimate is operation-count based and assumes no unusual request amplification.
+- Egress, Worker invocation, or other product-specific costs are not included here.
+
 ## Sources
 - https://developers.cloudflare.com/kv/platform/pricing/
 - https://developers.cloudflare.com/d1/platform/pricing/

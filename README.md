@@ -97,6 +97,11 @@ Current merged result:
 Cloudflare storage-only monthly cost estimate for this file size is effectively `$0.00/month` on KV, D1, and R2 because it is below each product's included storage tier.  
 Detailed assumptions and pricing references are recorded in `cloudflare_storage_cost_estimate.md`.
 
+Lookup example:
+
+- For `1,000` Cloudflare-backed lookups (KV/D1/R2 read patterns), expected incremental cost is typically `$0` because this volume is below standard free/included operation tiers.
+- If those `1,000` are all cache misses and each includes one KV write, it is still typically within daily free write allowance.
+
 ### Runtime Configuration
 
 Set these environment variables where Hunter lookups run:
