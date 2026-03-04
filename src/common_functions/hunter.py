@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 import json
 import os
 from typing import Any, Protocol
-from urllib import error, parse, request
+from urllib import parse, request
+
+from .cloudflare_kv import CloudflareKVConfig, CloudflareKVStore
 
 
 HUNTER_BASE_URL = "https://api.hunter.io/v2"
@@ -21,86 +22,6 @@ class CacheStore(Protocol):
 
     def set(self, key: str, value: dict[str, Any]) -> None:
         """Persist payload for key."""
-
-
-@dataclass(frozen=True)
-class CloudflareKVConfig:
-    """Configuration required for Cloudflare KV REST operations."""
-
-    account_id: str
-    namespace_id: str
-    api_token: str
-
-    @classmethod
-    def from_env(cls) -> "CloudflareKVConfig":
-        account_id = os.getenv("CF_ACCOUNT_ID", "").strip()
-        namespace_id = os.getenv("CF_KV_NAMESPACE_ID", "").strip()
-        api_token = os.getenv("CF_API_TOKEN", "").strip()
-        missing = [
-            name
-            for name, value in (
-                ("CF_ACCOUNT_ID", account_id),
-                ("CF_KV_NAMESPACE_ID", namespace_id),
-                ("CF_API_TOKEN", api_token),
-            )
-            if not value
-        ]
-        if missing:
-            raise ValueError(f"Missing required Cloudflare env vars: {', '.join(missing)}")
-        return cls(
-            account_id=account_id,
-            namespace_id=namespace_id,
-            api_token=api_token,
-        )
-
-
-class CloudflareKVStore:
-    """Cloudflare KV-backed cache implementation."""
-
-    def __init__(self, config: CloudflareKVConfig, timeout_seconds: int = 15) -> None:
-        self._config = config
-        self._timeout_seconds = timeout_seconds
-
-    def _key_url(self, key: str) -> str:
-        encoded_key = parse.quote(key, safe="")
-        return (
-            "https://api.cloudflare.com/client/v4/accounts/"
-            f"{self._config.account_id}/storage/kv/namespaces/"
-            f"{self._config.namespace_id}/values/{encoded_key}"
-        )
-
-    def get(self, key: str) -> dict[str, Any] | None:
-        req = request.Request(
-            self._key_url(key),
-            method="GET",
-            headers={
-                "Authorization": f"Bearer {self._config.api_token}",
-            },
-        )
-        try:
-            with request.urlopen(req, timeout=self._timeout_seconds) as resp:
-                payload = resp.read().decode("utf-8")
-        except error.HTTPError as exc:
-            if exc.code == 404:
-                return None
-            raise
-        if not payload:
-            return None
-        return json.loads(payload)
-
-    def set(self, key: str, value: dict[str, Any]) -> None:
-        body = json.dumps(value, separators=(",", ":")).encode("utf-8")
-        req = request.Request(
-            self._key_url(key),
-            method="PUT",
-            data=body,
-            headers={
-                "Authorization": f"Bearer {self._config.api_token}",
-                "Content-Type": "application/json",
-            },
-        )
-        with request.urlopen(req, timeout=self._timeout_seconds):
-            return
 
 
 class HunterClient:
@@ -144,6 +65,11 @@ class HunterClient:
             params["company"] = company
         return self._get("/email-finder", params)
 
+    def email_verifier(self, email: str) -> dict[str, Any]:
+        """Verify an email address deliverability with Hunter.io."""
+        params: dict[str, str] = {"email": email, "api_key": self._api_key}
+        return self._get("/email-verifier", params)
+
     def _get(self, path: str, params: dict[str, str]) -> dict[str, Any]:
         query = parse.urlencode(params)
         url = f"{HUNTER_BASE_URL}{path}?{query}"
@@ -182,6 +108,142 @@ def get_domain_search_cached(
             return cached["result"]
 
     result = hunter_client.domain_search(normalized)
+    expires = now + timedelta(hours=ttl_hours)
+    to_store = {
+        "source": "hunter.io",
+        "retrieved_at": now.isoformat().replace("+00:00", "Z"),
+        "expires_at": expires.isoformat().replace("+00:00", "Z"),
+        "result": result,
+    }
+    if cache_store is not None:
+        cache_store.set(cache_key, to_store)
+    return result
+
+
+def get_email_verification_cached(
+    *,
+    email: str,
+    hunter_client: HunterClient,
+    cache_store: CacheStore | None = None,
+    ttl_hours: int = 24 * 30,
+) -> dict[str, Any]:
+    """Cache-first wrapper for Hunter email verification results."""
+    normalized = email.strip().lower()
+    cache_key = f"hunter:email-verifier:{normalized}"
+    now = datetime.now(tz=timezone.utc)
+
+    if cache_store is not None:
+        cached = cache_store.get(cache_key)
+        if cached and not _is_stale(cached, now):
+            return cached["result"]
+
+    result = hunter_client.email_verifier(normalized)
+    expires = now + timedelta(hours=ttl_hours)
+    to_store = {
+        "source": "hunter.io",
+        "retrieved_at": now.isoformat().replace("+00:00", "Z"),
+        "expires_at": expires.isoformat().replace("+00:00", "Z"),
+        "result": result,
+    }
+    if cache_store is not None:
+        cache_store.set(cache_key, to_store)
+    return result
+
+
+def _normalize_domain_or_email(value: str) -> tuple[str, str]:
+    normalized = value.strip().lower()
+    if not normalized:
+        raise ValueError("A non-empty domain or email is required.")
+    if "@" in normalized:
+        local, domain = normalized.split("@", 1)
+        if not local or not domain or "." not in domain:
+            raise ValueError("Invalid email format.")
+        if domain.startswith(".") or domain.endswith("."):
+            raise ValueError("Invalid email format.")
+        return "email", f"{local}@{domain}"
+    if "." not in normalized:
+        raise ValueError("Invalid domain format.")
+    if normalized.startswith(".") or normalized.endswith("."):
+        raise ValueError("Invalid domain format.")
+    return "domain", normalized
+
+
+def _extract_first_email_from_domain_search(payload: dict[str, Any]) -> str | None:
+    data = payload.get("data")
+    if not isinstance(data, dict):
+        return None
+    emails = data.get("emails")
+    if not isinstance(emails, list):
+        return None
+    for entry in emails:
+        if not isinstance(entry, dict):
+            continue
+        value = entry.get("value")
+        if isinstance(value, str) and value.strip():
+            return value.strip().lower()
+    return None
+
+
+def get_domain_or_email_info_cached(
+    *,
+    domain_or_email: str,
+    hunter_client: HunterClient,
+    cache_store: CacheStore | None = None,
+    ttl_hours: int = 24 * 30,
+) -> dict[str, Any]:
+    """Return and cache domain/email intelligence for an email or domain input."""
+    input_type, normalized = _normalize_domain_or_email(domain_or_email)
+    cache_key = f"hunter:domain-email-info:{input_type}:{normalized}"
+    now = datetime.now(tz=timezone.utc)
+
+    if cache_store is not None:
+        cached = cache_store.get(cache_key)
+        if cached and not _is_stale(cached, now):
+            return cached["result"]
+
+    if input_type == "email":
+        email = normalized
+        domain = email.split("@", 1)[1]
+        verification = get_email_verification_cached(
+            email=email,
+            hunter_client=hunter_client,
+            cache_store=cache_store,
+            ttl_hours=ttl_hours,
+        )
+        result = {
+            "input": domain_or_email,
+            "input_type": "email",
+            "domain": domain,
+            "email": email,
+            "email_verification": verification,
+            "domain_search": None,
+        }
+    else:
+        domain = normalized
+        domain_search = get_domain_search_cached(
+            domain=domain,
+            hunter_client=hunter_client,
+            cache_store=cache_store,
+            ttl_hours=ttl_hours,
+        )
+        email = _extract_first_email_from_domain_search(domain_search)
+        verification = None
+        if email is not None:
+            verification = get_email_verification_cached(
+                email=email,
+                hunter_client=hunter_client,
+                cache_store=cache_store,
+                ttl_hours=ttl_hours,
+            )
+        result = {
+            "input": domain_or_email,
+            "input_type": "domain",
+            "domain": domain,
+            "email": email,
+            "email_verification": verification,
+            "domain_search": domain_search,
+        }
+
     expires = now + timedelta(hours=ttl_hours)
     to_store = {
         "source": "hunter.io",

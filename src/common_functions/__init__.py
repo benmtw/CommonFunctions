@@ -7,11 +7,12 @@ from .email_utils import (
     is_free_provider_email,
     is_personalized_email,
 )
+from .cloudflare_kv import CloudflareKVConfig, CloudflareKVStore
 from .hunter import (
-    CloudflareKVConfig,
-    CloudflareKVStore,
     HunterClient,
+    get_domain_or_email_info_cached,
     get_domain_search_cached,
+    get_email_verification_cached,
 )
 
 __all__ = [
@@ -24,4 +25,6 @@ __all__ = [
     "CloudflareKVStore",
     "HunterClient",
     "get_domain_search_cached",
+    "get_email_verification_cached",
+    "get_domain_or_email_info_cached",
 ]

@@ -78,6 +78,25 @@ Recommended strategy:
 
 This keeps recurring lookups cheaper and avoids recomputing/re-extracting expensive data.
 
+### Dataset Remark (2026-03-04)
+
+The disposable domain dataset at `src/common_functions/data/disposable_domains.txt` was refreshed from the top 3 starred, actively maintained GitHub sources below, then merged and deduplicated:
+
+1. `disposable-email-domains/disposable-email-domains`  
+   Source file: `disposable_email_blocklist.conf`
+2. `ivolo/disposable-email-domains`  
+   Source file: `index.json`
+3. `disposable/disposable`  
+   Source file: `greylist.txt`
+
+Current merged result:
+
+- Unique domains: `124,109`
+- File size: `2,008,671` bytes (about `1.92 MiB`)
+
+Cloudflare storage-only monthly cost estimate for this file size is effectively `$0.00/month` on KV, D1, and R2 because it is below each product's included storage tier.  
+Detailed assumptions and pricing references are recorded in `cloudflare_storage_cost_estimate.md`.
+
 ### Runtime Configuration
 
 Set these environment variables where Hunter lookups run:
@@ -95,6 +114,7 @@ CF_API_TOKEN=...
 from common_functions import (
     CloudflareKVConfig,
     CloudflareKVStore,
+    get_domain_or_email_info_cached,
     HunterClient,
     get_domain_search_cached,
 )
@@ -104,6 +124,13 @@ kv_store = CloudflareKVStore(CloudflareKVConfig.from_env())
 
 result = get_domain_search_cached(
     domain="example.com",
+    hunter_client=hunter,
+    cache_store=kv_store,
+    ttl_hours=24 * 30,
+)
+
+verified = get_domain_or_email_info_cached(
+    domain_or_email="person@example.com",  # also accepts "example.com"
     hunter_client=hunter,
     cache_store=kv_store,
     ttl_hours=24 * 30,
