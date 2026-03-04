@@ -55,6 +55,61 @@ This project uses Cloudflare for selected runtime functions and supporting servi
 
 This approach helps control cost, reduce repeated extraction work, and improve performance for repeated lookups.
 
+## Hunter.io Integration
+
+Hunter.io is used occasionally for enrichment and email intelligence lookups.
+
+- API base endpoint: `https://api.hunter.io/v2/`
+- Authentication: API key required on each request.
+- Hunter docs: `https://hunter.io/api-documentation#introduction`
+
+To reduce paid API usage, Hunter responses should be cached/persisted in Cloudflare data products:
+
+- Use `D1` for structured relational records and queryable enrichment history.
+- Use `KV` for fast key-based lookup caches (for example, by domain/email hash).
+- Use `R2` for larger raw payload snapshots or archival responses.
+
+Recommended strategy:
+
+1. Check Cloudflare cache/storage first.
+2. Call Hunter only on cache miss or stale data.
+3. Persist normalized result + retrieval timestamp + source metadata.
+4. Apply TTL/refresh policy based on data volatility and credit cost.
+
+This keeps recurring lookups cheaper and avoids recomputing/re-extracting expensive data.
+
+### Runtime Configuration
+
+Set these environment variables where Hunter lookups run:
+
+```text
+HUNTER_API_KEY=...
+CF_ACCOUNT_ID=...
+CF_KV_NAMESPACE_ID=...
+CF_API_TOKEN=...
+```
+
+### Python Usage Example
+
+```python
+from common_functions import (
+    CloudflareKVConfig,
+    CloudflareKVStore,
+    HunterClient,
+    get_domain_search_cached,
+)
+
+hunter = HunterClient.from_env()
+kv_store = CloudflareKVStore(CloudflareKVConfig.from_env())
+
+result = get_domain_search_cached(
+    domain="example.com",
+    hunter_client=hunter,
+    cache_store=kv_store,
+    ttl_hours=24 * 30,
+)
+```
+
 ## Install In Other Projects
 
 Use one of the following patterns in the consuming project.

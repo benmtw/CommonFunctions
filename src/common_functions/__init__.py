@@ -7,6 +7,12 @@ from .email_utils import (
     is_free_provider_email,
     is_personalized_email,
 )
+from .hunter import (
+    CloudflareKVConfig,
+    CloudflareKVStore,
+    HunterClient,
+    get_domain_search_cached,
+)
 
 __all__ = [
     "get_free_provider_domains",
@@ -14,4 +20,8 @@ __all__ = [
     "is_personalized_email",
     "is_disposable_email",
     "is_free_provider_email",
+    "CloudflareKVConfig",
+    "CloudflareKVStore",
+    "HunterClient",
+    "get_domain_search_cached",
 ]
