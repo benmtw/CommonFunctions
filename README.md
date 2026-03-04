@@ -8,7 +8,6 @@ This repository starts with email-focused helpers (for example, checking whether
 
 - Keep shared logic in one place instead of duplicating it across projects.
 - Provide a stable package that other repositories can install.
-- Build and test all code inside a Python virtual environment.
 
 ## Planned Functionality
 
@@ -16,12 +15,6 @@ This repository starts with email-focused helpers (for example, checking whether
 - `is_disposable_email(email: str) -> bool`
 - `is_free_provider_email(email: str) -> bool`
 - Additional common validation and normalization helpers (to be added).
-
-## Development Rules
-
-- All development must happen in a Python virtual environment.
-- Use type hints and docstrings for public functions.
-- Add tests for every new helper.
 
 ## Local Development (venv)
 
@@ -43,13 +36,42 @@ pytest
 
 This project is intended to be installable by other repositories from GitHub.
 
-Example install (after packaging is in place):
+Quick install:
 
 ```powershell
-pip install "git+https://github.com/<org-or-user>/CommonFunctions.git"
+pip install "git+https://github.com/benmtw/CommonFunctions.git"
 ```
 
 `pyproject.toml` is included, so this repository can be installed directly from GitHub.
+
+## Install In Other Projects
+
+Use one of the following patterns in the consuming project.
+
+`requirements.txt`:
+
+```text
+common-functions @ git+https://github.com/benmtw/CommonFunctions.git@main
+```
+
+`pyproject.toml` (PEP 508 direct reference):
+
+```toml
+[project]
+dependencies = [
+  "common-functions @ git+https://github.com/benmtw/CommonFunctions.git@main"
+]
+```
+
+Pin to a tag for reproducible builds (recommended once releases are created):
+
+```text
+common-functions @ git+https://github.com/benmtw/CommonFunctions.git@v0.1.0
+```
+
+## Agent Instructions
+
+Repository-specific AI agent workflow rules are in `AGENTS.md`.
 
 ## Suggested Project Structure
 
