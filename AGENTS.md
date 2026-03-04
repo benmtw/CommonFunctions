@@ -21,6 +21,15 @@ Instructions for AI coding agents working in this repository.
 - Add concise docstrings for public functions.
 - Add or update tests for every new helper or behavior change.
 
+## Changelog Policy
+
+- Maintain `CHANGELOG.md` for all meaningful changes.
+- Update the changelog in the same branch/commit when code changes include:
+  - New helpers, behavior changes, or API surface updates.
+  - Dataset refreshes or source changes (for example domain list updates).
+  - Dependency or configuration changes that affect runtime behavior.
+- Each changelog entry should include a short summary and date.
+
 ## Package Context
 
 - Main package path: `src/common_functions/`

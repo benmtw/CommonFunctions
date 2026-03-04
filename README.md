@@ -33,6 +33,30 @@ Run tests:
 pytest
 ```
 
+## API Docs (pdoc)
+
+Generate a single-file API reference:
+
+```powershell
+python scripts/generate_api_docs.py
+```
+
+Output file:
+
+- `docs/API_REFERENCE.html`
+
+Automatic updates on changes:
+
+```powershell
+pre-commit install
+```
+
+After hooks are installed, commits touching `src/common_functions/`, `pyproject.toml`, or `README.md` will regenerate API docs automatically.
+
+Repository automation:
+
+- GitHub Actions also regenerates and commits `docs/API_REFERENCE.html` automatically on pushes to `main` when relevant files change.
+
 ## Packaging Plan
 
 This project is intended to be installable by other repositories from GitHub.

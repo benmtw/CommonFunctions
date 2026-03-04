@@ -1,0 +1,42 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+## [Unreleased]
+
+### Added
+- `pdoc` API documentation automation:
+  - `scripts/generate_api_docs.py`
+  - `.pre-commit-config.yaml` hook to regenerate docs on commit
+  - `.github/workflows/api-docs-check.yml` CI validation
+  - `.github/workflows/api-docs-auto-update.yml` auto-commit on `main`
+- Generated single-file API reference output:
+  - `docs/API_REFERENCE.html`
+
+### Changed
+- Updated developer dependencies to include `pdoc` and `pre-commit`.
+- Updated README with API docs generation and auto-update workflow.
+
+### Fixed
+- N/A
+
+## [2026-03-04]
+
+### Added
+- Hunter email verification helpers:
+  - `HunterClient.email_verifier(...)`
+  - `get_email_verification_cached(...)`
+  - `get_domain_or_email_info_cached(...)`
+- New Cloudflare KV module:
+  - `src/common_functions/cloudflare_kv.py`
+- Cost estimate document:
+  - `cloudflare_storage_cost_estimate.md`
+
+### Changed
+- Refreshed `disposable_domains.txt` using merged/deduplicated top GitHub sources.
+- Split Cloudflare KV implementation from Hunter API logic.
+- Added README notes for dataset provenance and Cloudflare lookup/storage cost expectations.
+- Updated `AGENTS.md` to require changelog maintenance.
+
+### Fixed
+- N/A

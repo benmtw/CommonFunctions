@@ -23,6 +23,8 @@ dependencies = []
 [project.optional-dependencies]
 dev = [
   "pytest>=8.0.0",
+  "pdoc>=14.0.0",
+  "pre-commit>=3.0.0",
 ]
 
 [tool.setuptools]

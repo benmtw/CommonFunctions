@@ -1,0 +1,26 @@
+name: API Docs Check
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  api-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install package with dev dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Regenerate API docs
+        run: python scripts/generate_api_docs.py
+
+      - name: Verify docs are up to date
+        run: git diff --exit-code -- docs/API_REFERENCE.html
