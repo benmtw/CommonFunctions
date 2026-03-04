@@ -12,10 +12,16 @@ All notable changes to this project will be documented in this file.
   - `.github/workflows/api-docs-auto-update.yml` auto-commit on `main`
 - Generated single-file API reference output:
   - `docs/API_REFERENCE.html`
+- D1 disposable-domain sync tooling:
+  - `sql/d1_disposable_domains_schema.sql`
+  - `scripts/sync_disposable_domains_to_d1.py`
 
 ### Changed
 - Updated developer dependencies to include `pdoc` and `pre-commit`.
 - Updated README with API docs generation and auto-update workflow.
+- Updated README with D1 import and lookup commands for disposable-domain dataset.
+- Updated D1 examples to use project-prefixed DB name: `commonfunctions_disposable_domains`.
+- Improved D1 sync script compatibility for Windows `wrangler` resolution and D1 statement-size constraints.
 
 ### Fixed
 - N/A

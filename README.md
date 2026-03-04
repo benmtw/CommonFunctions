@@ -126,6 +126,37 @@ Lookup example:
 - For `1,000` Cloudflare-backed lookups (KV/D1/R2 read patterns), expected incremental cost is typically `$0` because this volume is below standard free/included operation tiers.
 - If those `1,000` are all cache misses and each includes one KV write, it is still typically within daily free write allowance.
 
+### D1 Dataset Sync (Recommended)
+
+To persist the disposable domain dataset in Cloudflare D1 (cheapest practical option for bulk load + lookup):
+
+1. Create a D1 database (if needed):
+
+```powershell
+wrangler d1 create commonfunctions_disposable_domains
+```
+
+2. Import schema + dataset in batches from this repo:
+
+```powershell
+python scripts/sync_disposable_domains_to_d1.py --database commonfunctions_disposable_domains --remote
+```
+
+Useful options:
+
+- `--chunk-size 5000` (default) controls rows per import batch.
+- Omit `--remote` to target local wrangler D1.
+
+3. Example lookup query:
+
+```powershell
+wrangler d1 execute commonfunctions_disposable_domains --remote --command "SELECT 1 FROM disposable_domains WHERE domain='mailinator.com' LIMIT 1;"
+```
+
+Schema file:
+
+- `sql/d1_disposable_domains_schema.sql`
+
 ### Runtime Configuration
 
 Set these environment variables where Hunter lookups run:
