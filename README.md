@@ -8,6 +8,7 @@ This repository starts with email-focused helpers (for example, checking whether
 
 - Keep shared logic in one place instead of duplicating it across projects.
 - Provide a stable package that other repositories can install.
+- Support cloud-backed execution and storage for higher-cost data workflows.
 
 ## Planned Functionality
 
@@ -43,6 +44,16 @@ pip install "git+https://github.com/benmtw/CommonFunctions.git"
 ```
 
 `pyproject.toml` is included, so this repository can be installed directly from GitHub.
+
+## Cloud Infrastructure
+
+This project uses Cloudflare for selected runtime functions and supporting services.
+
+- Some function-style workloads are intended to run via Cloudflare (for example Workers-based utility APIs).
+- We also use Cloudflare data products for persisted datasets that are expensive to obtain (paid source data) or expensive to recompute.
+- Typical storage targets may include Cloudflare data services such as D1, KV, and/or R2 depending on the access pattern and retention needs.
+
+This approach helps control cost, reduce repeated extraction work, and improve performance for repeated lookups.
 
 ## Install In Other Projects
 
