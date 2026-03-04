@@ -1,0 +1,8 @@
+# Free/personal mailbox providers
+gmx.com
+gmx.net
+mail.com
+msn.com
+qq.com
+yandex.com
+zoho.com
