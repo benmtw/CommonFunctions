@@ -12,4 +12,3 @@ build/
 !.env.example
 .wrangler/
 .claude/
-millionverifierlists/
