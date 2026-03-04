@@ -22,6 +22,7 @@ All notable changes to this project will be documented in this file.
 - Updated README with D1 import and lookup commands for disposable-domain dataset.
 - Updated D1 examples to use project-prefixed DB name: `commonfunctions_disposable_domains`.
 - Improved D1 sync script compatibility for Windows `wrangler` resolution and D1 statement-size constraints.
+- Expanded public module/function/class docstrings so generated `pdoc` API docs include richer usage and contract details.
 
 ### Fixed
 - N/A

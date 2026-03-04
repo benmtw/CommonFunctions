@@ -1,4 +1,8 @@
-"""Cloudflare KV cache helpers."""
+"""Cloudflare KV REST helpers used by cache wrappers.
+
+This module intentionally keeps a small surface area: configuration loading
+from environment variables and simple ``get``/``set`` JSON operations.
+"""
 
 from __future__ import annotations
 
@@ -11,7 +15,13 @@ from urllib import error, parse, request
 
 @dataclass(frozen=True)
 class CloudflareKVConfig:
-    """Configuration required for Cloudflare KV REST operations."""
+    """Configuration required for Cloudflare KV REST operations.
+
+    Attributes:
+        account_id: Cloudflare account identifier.
+        namespace_id: KV namespace identifier.
+        api_token: API token with KV permissions.
+    """
 
     account_id: str
     namespace_id: str
@@ -19,6 +29,19 @@ class CloudflareKVConfig:
 
     @classmethod
     def from_env(cls) -> "CloudflareKVConfig":
+        """Load KV configuration from environment variables.
+
+        Required variables:
+        - ``CF_ACCOUNT_ID``
+        - ``CF_KV_NAMESPACE_ID``
+        - ``CF_API_TOKEN``
+
+        Returns:
+            Populated :class:`CloudflareKVConfig`.
+
+        Raises:
+            ValueError: If one or more required variables are missing.
+        """
         account_id = os.getenv("CF_ACCOUNT_ID", "").strip()
         namespace_id = os.getenv("CF_KV_NAMESPACE_ID", "").strip()
         api_token = os.getenv("CF_API_TOKEN", "").strip()
@@ -41,7 +64,10 @@ class CloudflareKVConfig:
 
 
 class CloudflareKVStore:
-    """Cloudflare KV-backed cache implementation."""
+    """Cloudflare KV-backed cache implementation.
+
+    Values are serialized as compact JSON dictionaries.
+    """
 
     def __init__(self, config: CloudflareKVConfig, timeout_seconds: int = 15) -> None:
         self._config = config
@@ -56,6 +82,15 @@ class CloudflareKVStore:
         )
 
     def get(self, key: str) -> dict[str, Any] | None:
+        """Fetch and decode a KV value.
+
+        Args:
+            key: Exact KV key.
+
+        Returns:
+            Parsed JSON value as a dictionary, or ``None`` when the key does
+            not exist or has empty content.
+        """
         req = request.Request(
             self._key_url(key),
             method="GET",
@@ -75,6 +110,12 @@ class CloudflareKVStore:
         return json.loads(payload)
 
     def set(self, key: str, value: dict[str, Any]) -> None:
+        """Store a dictionary value in KV as JSON.
+
+        Args:
+            key: KV key.
+            value: JSON-serializable dictionary payload.
+        """
         body = json.dumps(value, separators=(",", ":")).encode("utf-8")
         req = request.Request(
             self._key_url(key),

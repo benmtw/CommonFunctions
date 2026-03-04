@@ -1,4 +1,13 @@
-"""Email helper utilities used across projects."""
+"""Email/domain classification helpers.
+
+This module provides lightweight heuristics for:
+- identifying role-based vs. person-like mailbox local parts,
+- classifying addresses that use common free mailbox providers,
+- classifying addresses that use disposable/temporary providers.
+
+Data sources are package-local text files under ``common_functions/data`` plus
+small built-in defaults so the helpers still work if package data is absent.
+"""
 
 from __future__ import annotations
 
@@ -101,18 +110,40 @@ def _read_domain_file(filename: str) -> set[str]:
 
 @lru_cache(maxsize=1)
 def get_free_provider_domains() -> set[str]:
-    """Load known free mailbox provider domains from package data."""
+    """Return known free mailbox provider domains.
+
+    Returns:
+        A lowercased set of domains (for example ``gmail.com``), including
+        built-in defaults and optional values from
+        ``data/free_provider_domains.txt``.
+    """
     return _DEFAULT_FREE_PROVIDER_DOMAINS | _read_domain_file("free_provider_domains.txt")
 
 
 @lru_cache(maxsize=1)
 def get_disposable_domains() -> set[str]:
-    """Load known disposable mailbox provider domains from package data."""
+    """Return known disposable/temporary mailbox provider domains.
+
+    Returns:
+        A lowercased set of domains, including built-in defaults and values
+        loaded from ``data/disposable_domains.txt``.
+    """
     return _DEFAULT_DISPOSABLE_DOMAINS | _read_domain_file("disposable_domains.txt")
 
 
 def is_personalized_email(email: str) -> bool:
-    """Return True when the local-part appears to represent a person."""
+    """Heuristically detect whether an email looks person-specific.
+
+    The check is intentionally simple and fast. It rejects obvious role-based
+    local parts such as ``info`` and ``support``, as well as numeric-only and
+    malformed values.
+
+    Args:
+        email: Email address to classify.
+
+    Returns:
+        ``True`` when the local part looks person-like, else ``False``.
+    """
     parsed = _split_email(email)
     if parsed is None:
         return False
@@ -143,7 +174,17 @@ def is_personalized_email(email: str) -> bool:
 
 
 def is_free_provider_email(email: str) -> bool:
-    """Return True for common personal/free mailbox providers."""
+    """Return whether an email belongs to a known free mailbox provider.
+
+    Supports subdomains through suffix matching, so
+    ``user@mail.gmx.com`` can match ``gmx.com`` in the provider set.
+
+    Args:
+        email: Email address to classify.
+
+    Returns:
+        ``True`` if the domain is in the free-provider dataset, else ``False``.
+    """
     parsed = _split_email(email)
     if parsed is None:
         return False
@@ -152,7 +193,17 @@ def is_free_provider_email(email: str) -> bool:
 
 
 def is_disposable_email(email: str) -> bool:
-    """Return True for known disposable/temporary email providers."""
+    """Return whether an email belongs to a known disposable provider.
+
+    Supports subdomain suffix matching against the disposable dataset.
+
+    Args:
+        email: Email address to classify.
+
+    Returns:
+        ``True`` if the domain is in the disposable-domain dataset, else
+        ``False``.
+    """
     parsed = _split_email(email)
     if parsed is None:
         return False

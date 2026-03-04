@@ -1,4 +1,11 @@
-"""Hunter.io helpers with optional Cloudflare KV caching."""
+"""Hunter.io client and cache-first helper functions.
+
+The module provides:
+- a thin Hunter HTTP client,
+- cache wrappers around frequently used Hunter endpoints,
+- a high-level helper that accepts either a domain or an email and returns
+  normalized result payloads.
+"""
 
 from __future__ import annotations
 
@@ -15,7 +22,7 @@ HUNTER_BASE_URL = "https://api.hunter.io/v2"
 
 
 class CacheStore(Protocol):
-    """Minimal key/value cache contract used by Hunter helpers."""
+    """Minimal key/value cache contract used by Hunter wrappers."""
 
     def get(self, key: str) -> dict[str, Any] | None:
         """Return cached payload for key, or None if not found."""
@@ -25,7 +32,11 @@ class CacheStore(Protocol):
 
 
 class HunterClient:
-    """Lightweight Hunter.io API client."""
+    """Lightweight Hunter.io API client.
+
+    The client is intentionally minimal and returns raw decoded JSON responses
+    from Hunter endpoints so callers can preserve full payload fidelity.
+    """
 
     def __init__(self, api_key: str, timeout_seconds: int = 20) -> None:
         api_key = api_key.strip()
@@ -36,12 +47,29 @@ class HunterClient:
 
     @classmethod
     def from_env(cls) -> "HunterClient":
+        """Build a client from ``HUNTER_API_KEY``.
+
+        Returns:
+            Configured :class:`HunterClient`.
+
+        Raises:
+            ValueError: If ``HUNTER_API_KEY`` is missing/blank.
+        """
         api_key = os.getenv("HUNTER_API_KEY", "")
         if not api_key.strip():
             raise ValueError("Missing required env var: HUNTER_API_KEY")
         return cls(api_key=api_key)
 
     def domain_search(self, domain: str, limit: int | None = None) -> dict[str, Any]:
+        """Call Hunter ``/domain-search``.
+
+        Args:
+            domain: Domain to search.
+            limit: Optional result limit passed through to Hunter.
+
+        Returns:
+            Raw Hunter JSON response as a dictionary.
+        """
         params: dict[str, str] = {"domain": domain, "api_key": self._api_key}
         if limit is not None:
             params["limit"] = str(limit)
@@ -55,6 +83,17 @@ class HunterClient:
         last_name: str,
         company: str | None = None,
     ) -> dict[str, Any]:
+        """Call Hunter ``/email-finder``.
+
+        Args:
+            domain: Company domain.
+            first_name: Contact first name.
+            last_name: Contact last name.
+            company: Optional company name hint.
+
+        Returns:
+            Raw Hunter JSON response as a dictionary.
+        """
         params: dict[str, str] = {
             "domain": domain,
             "first_name": first_name,
@@ -66,7 +105,14 @@ class HunterClient:
         return self._get("/email-finder", params)
 
     def email_verifier(self, email: str) -> dict[str, Any]:
-        """Verify an email address deliverability with Hunter.io."""
+        """Call Hunter ``/email-verifier`` for a single email address.
+
+        Args:
+            email: Email address to verify.
+
+        Returns:
+            Raw Hunter JSON response containing status/result details.
+        """
         params: dict[str, str] = {"email": email, "api_key": self._api_key}
         return self._get("/email-verifier", params)
 
@@ -97,7 +143,20 @@ def get_domain_search_cached(
     cache_store: CacheStore | None = None,
     ttl_hours: int = 24 * 30,
 ) -> dict[str, Any]:
-    """Cache-first wrapper for Hunter domain search results."""
+    """Return Hunter domain-search data with optional cache lookup.
+
+    Cache key format:
+        ``hunter:domain-search:{normalized_domain}``
+
+    Args:
+        domain: Domain to search.
+        hunter_client: Configured Hunter client.
+        cache_store: Optional cache backend implementing :class:`CacheStore`.
+        ttl_hours: Cache TTL in hours (default 30 days).
+
+    Returns:
+        Hunter domain-search response payload.
+    """
     normalized = domain.strip().lower()
     cache_key = f"hunter:domain-search:{normalized}"
     now = datetime.now(tz=timezone.utc)
@@ -127,7 +186,20 @@ def get_email_verification_cached(
     cache_store: CacheStore | None = None,
     ttl_hours: int = 24 * 30,
 ) -> dict[str, Any]:
-    """Cache-first wrapper for Hunter email verification results."""
+    """Return Hunter email-verification data with optional caching.
+
+    Cache key format:
+        ``hunter:email-verifier:{normalized_email}``
+
+    Args:
+        email: Email address to verify.
+        hunter_client: Configured Hunter client.
+        cache_store: Optional cache backend implementing :class:`CacheStore`.
+        ttl_hours: Cache TTL in hours (default 30 days).
+
+    Returns:
+        Hunter email-verifier response payload.
+    """
     normalized = email.strip().lower()
     cache_key = f"hunter:email-verifier:{normalized}"
     now = datetime.now(tz=timezone.utc)
@@ -191,7 +263,29 @@ def get_domain_or_email_info_cached(
     cache_store: CacheStore | None = None,
     ttl_hours: int = 24 * 30,
 ) -> dict[str, Any]:
-    """Return and cache domain/email intelligence for an email or domain input."""
+    """Return normalized domain/email intelligence with cache support.
+
+    Input behavior:
+    - If ``domain_or_email`` is an email, verifies that exact email.
+    - If ``domain_or_email`` is a domain, runs domain search and, when
+      available, verifies the first discovered email value.
+
+    The combined result is also cached under:
+        ``hunter:domain-email-info:{input_type}:{normalized_value}``
+
+    Args:
+        domain_or_email: Domain (``example.com``) or email
+            (``person@example.com``).
+        hunter_client: Configured Hunter client.
+        cache_store: Optional cache backend implementing :class:`CacheStore`.
+        ttl_hours: Cache TTL in hours (default 30 days).
+
+    Returns:
+        A dictionary with normalized input metadata and nested Hunter payloads.
+
+    Raises:
+        ValueError: If input is empty or not a valid domain/email format.
+    """
     input_type, normalized = _normalize_domain_or_email(domain_or_email)
     cache_key = f"hunter:domain-email-info:{input_type}:{normalized}"
     now = datetime.now(tz=timezone.utc)
