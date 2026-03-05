@@ -1,0 +1,48 @@
+#!D:/DataProvidersPotential/DataProvidersPotential/CommonFunctions/.venv/Scripts/python.exe
+"""Windows-safe pre-commit hook entrypoint.
+
+Avoids Git-for-Windows sh.exe hook execution path and forces a repo-local
+pre-commit cache so environments with restricted user profile directories work.
+"""
+
+from __future__ import annotations
+
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+
+
+def _resolve_python(root: Path) -> list[str]:
+    candidates = [
+        root / ".venv" / "Scripts" / "python.exe",
+        root / ".venv" / "bin" / "python",
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return [str(candidate)]
+    for binary in ("python", "py"):
+        resolved = shutil.which(binary)
+        if resolved:
+            if binary == "py":
+                return [resolved, "-3"]
+            return [resolved]
+    raise RuntimeError("No Python interpreter found for pre-commit hook.")
+
+
+def main() -> int:
+    root = Path(__file__).resolve().parents[1]
+    cache_dir = root / ".pre-commit-cache"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+
+    env = dict(os.environ)
+    env["PRE_COMMIT_HOME"] = str(cache_dir)
+
+    python_cmd = _resolve_python(root)
+    command = python_cmd + ["-m", "pre_commit", "run", "--hook-stage", "pre-commit"]
+    return subprocess.call(command, cwd=root, env=env)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
