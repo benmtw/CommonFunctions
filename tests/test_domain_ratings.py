@@ -2,8 +2,8 @@ from pathlib import Path
 import uuid
 
 from common_functions.domain_ratings import (
+    _get_domain_rating_info_cached,
     aggregate_domain_records,
-    get_domain_rating_info_cached,
     parse_evidence_from_csv_files,
 )
 
@@ -144,12 +144,12 @@ def test_lookup_uses_cache_then_store():
     store = _InMemoryDomainStore([record])
     cache = _InMemoryCache()
 
-    first = get_domain_rating_info_cached(
+    first = _get_domain_rating_info_cached(
         domain="example.com",
         d1_store=store,
         kv_cache=cache,
     )
-    second = get_domain_rating_info_cached(
+    second = _get_domain_rating_info_cached(
         domain="example.com",
         d1_store=store,
         kv_cache=cache,
@@ -166,7 +166,7 @@ def test_lookup_fallback_requires_matching_email_domain():
     cache = _InMemoryCache()
     fake_client = _FakeMillionVerifierClient()
     try:
-        get_domain_rating_info_cached(
+        _get_domain_rating_info_cached(
             domain="example.com",
             d1_store=store,
             kv_cache=cache,
@@ -184,7 +184,7 @@ def test_lookup_fallback_fetches_and_persists_when_not_found():
     cache = _InMemoryCache()
     fake_client = _FakeMillionVerifierClient()
 
-    result = get_domain_rating_info_cached(
+    result = _get_domain_rating_info_cached(
         domain="example.com",
         d1_store=store,
         kv_cache=cache,

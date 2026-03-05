@@ -12,10 +12,11 @@ This repository starts with email-focused helpers (for example, checking whether
 
 ## Planned Functionality
 
+- `lookup_domain(domain: str, ...) -> dict`
+- `lookup_email(email: str, ...) -> dict`
 - `is_personalized_email(email: str) -> bool`
 - `is_disposable_domain(domain_or_email: str) -> bool`
 - `is_free_provider_domain(domain_or_email: str) -> bool`
-- `get_domain_rating_info_cached(domain: str, ...) -> dict`
 - Additional common validation and normalization helpers (to be added).
 
 ## Local Development (venv)
@@ -110,7 +111,7 @@ verification CSV exports under `millionverifierlists/lists`.
 
 The lookup helper:
 
-- `get_domain_rating_info_cached(...)`
+- `lookup_domain(...)`
 
 returns:
 
@@ -144,6 +145,17 @@ Dataset build + sync commands:
 python scripts/build_domain_ratings_dataset.py
 python scripts/sync_domain_ratings_to_d1.py --database <d1_db_name> --remote
 ```
+
+### Intent-First API (Recommended)
+
+Prefer these entrypoints for new integrations:
+
+- `lookup_domain(...)`
+- `lookup_email(...)`
+
+They provide a stable, intent-first interface and route to the configured
+backend source (`ratings` or `hunter`) while preserving backward compatibility
+with existing lower-level helpers.
 
 ### Dataset Remark (2026-03-04)
 

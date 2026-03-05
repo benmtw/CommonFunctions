@@ -20,6 +20,10 @@ All notable changes to this project will be documented in this file.
   - `scripts/build_domain_ratings_dataset.py`
   - `scripts/sync_domain_ratings_to_d1.py`
   - `sql/d1_domain_ratings_schema.sql`
+- Intent-first lookup API:
+  - `src/common_functions/lookups.py`
+  - `lookup_domain(...)`
+  - `lookup_email(...)`
 
 ### Changed
 - Updated developer dependencies to include `pdoc` and `pre-commit`.
@@ -37,7 +41,9 @@ All notable changes to this project will be documented in this file.
   - `CloudflareD1Config`
   - `CloudflareD1DomainRatingsStore`
   - `MillionVerifierClient`
-  - `get_domain_rating_info_cached(...)`
+- Added public intent-first exports:
+  - `lookup_domain(...)`
+  - `lookup_email(...)`
 - Updated README with merged-domain-rating + naming-format usage and Cloudflare D1 sync steps.
 
 ### Fixed

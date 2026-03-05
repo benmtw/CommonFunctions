@@ -14,7 +14,6 @@ from .domain_ratings import (
     CloudflareD1Config,
     CloudflareD1DomainRatingsStore,
     MillionVerifierClient,
-    get_domain_rating_info_cached,
 )
 from .hunter import (
     HunterClient,
@@ -22,6 +21,7 @@ from .hunter import (
     get_domain_search_cached,
     get_email_verification_cached,
 )
+from .lookups import lookup_domain, lookup_email
 
 __all__ = [
     "get_free_provider_domains",
@@ -40,5 +40,6 @@ __all__ = [
     "get_domain_search_cached",
     "get_email_verification_cached",
     "get_domain_or_email_info_cached",
-    "get_domain_rating_info_cached",
+    "lookup_domain",
+    "lookup_email",
 ]

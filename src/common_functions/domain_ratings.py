@@ -81,7 +81,13 @@ class DomainRatingsStore(Protocol):
 
 @dataclass(frozen=True)
 class CloudflareD1Config:
-    """Configuration required for Cloudflare D1 REST operations."""
+    """Configuration required for Cloudflare D1 REST operations.
+
+    Attributes:
+        account_id: Cloudflare account identifier.
+        database_id: D1 database identifier (UUID), not the binding name.
+        api_token: API token with D1 query permissions.
+    """
 
     account_id: str
     database_id: str
@@ -95,6 +101,12 @@ class CloudflareD1Config:
         - ``CF_ACCOUNT_ID``
         - ``CF_D1_DATABASE_ID``
         - ``CF_API_TOKEN``
+
+        Returns:
+            Populated :class:`CloudflareD1Config`.
+
+        Raises:
+            ValueError: If one or more required variables are missing.
         """
         account_id = os.getenv("CF_ACCOUNT_ID", "").strip()
         database_id = os.getenv("CF_D1_DATABASE_ID", "").strip()
@@ -118,7 +130,12 @@ class CloudflareD1Config:
 
 
 class CloudflareD1DomainRatingsStore:
-    """Cloudflare D1-backed domain ratings store."""
+    """Cloudflare D1-backed domain ratings store.
+
+    This class is a thin adapter over Cloudflare D1's REST query endpoint. It
+    expects schema compatibility with ``sql/d1_domain_ratings_schema.sql`` and
+    serializes nested dictionaries/lists into JSON columns.
+    """
 
     def __init__(self, config: CloudflareD1Config, timeout_seconds: int = 20) -> None:
         self._config = config
@@ -162,6 +179,14 @@ class CloudflareD1DomainRatingsStore:
         return []
 
     def get_domain_rating(self, domain: str) -> dict[str, Any] | None:
+        """Return one normalized domain-rating record from D1.
+
+        Args:
+            domain: Domain to query.
+
+        Returns:
+            A normalized domain-rating dictionary if found, else ``None``.
+        """
         normalized = _normalize_domain(domain)
         sql = (
             "SELECT domain, verdict, confidence, evidence_count, result_counts_json, "
@@ -195,6 +220,13 @@ class CloudflareD1DomainRatingsStore:
         }
 
     def upsert_domain_rating(self, record: dict[str, Any]) -> None:
+        """Insert or update one domain-rating record in D1.
+
+        Args:
+            record: Aggregated domain-rating payload matching the storage schema.
+                Nested structures (counts, naming-format distribution) are
+                serialized to JSON automatically.
+        """
         naming = record.get("naming_format", {})
         sql = (
             f"INSERT INTO {D1_DOMAIN_RATINGS_TABLE} ("
@@ -240,7 +272,11 @@ class CloudflareD1DomainRatingsStore:
 
 
 class MillionVerifierClient:
-    """Minimal MillionVerifier API client (single-email verification)."""
+    """Minimal MillionVerifier API client (single-email verification).
+
+    This client intentionally keeps a small surface area and returns decoded
+    raw JSON so callers can preserve provider payload fidelity.
+    """
 
     _BASE_URL = "https://api.millionverifier.com/api/v3/"
 
@@ -253,14 +289,28 @@ class MillionVerifierClient:
 
     @classmethod
     def from_env(cls) -> "MillionVerifierClient":
-        """Build a client from ``MILLIONVERIFIER_API_KEY``."""
+        """Build a client from ``MILLIONVERIFIER_API_KEY``.
+
+        Returns:
+            Configured :class:`MillionVerifierClient`.
+
+        Raises:
+            ValueError: If the environment variable is missing or blank.
+        """
         api_key = os.getenv("MILLIONVERIFIER_API_KEY", "").strip()
         if not api_key:
             raise ValueError("Missing required env var: MILLIONVERIFIER_API_KEY")
         return cls(api_key=api_key)
 
     def verify_email(self, email: str) -> dict[str, Any]:
-        """Verify one email address via MillionVerifier."""
+        """Verify one email address via MillionVerifier.
+
+        Args:
+            email: Email address to verify.
+
+        Returns:
+            Raw decoded JSON payload from MillionVerifier.
+        """
         normalized = _normalize_email(email)
         query = parse.urlencode(
             {
@@ -478,7 +528,18 @@ def _build_distribution(format_counts: Counter[str]) -> list[dict[str, Any]]:
 def aggregate_domain_records(evidences: Iterable[_EvidenceRow]) -> list[dict[str, Any]]:
     """Aggregate evidence rows into domain-level records.
 
-    Rows are deduplicated per domain using ``(email, normalized_result)``.
+    Rows are deduplicated per domain using ``(email, normalized_result)`` and
+    collapsed into one domain record with:
+    - risk verdict and confidence,
+    - result/provider distributions,
+    - naming-format primary label and full distribution,
+    - metadata timestamps/source.
+
+    Args:
+        evidences: Iterable of normalized evidence rows.
+
+    Returns:
+        Sorted list of domain aggregate records keyed by ``domain``.
     """
     grouped: dict[str, list[_EvidenceRow]] = defaultdict(list)
     for row in evidences:
@@ -559,7 +620,17 @@ def aggregate_domain_records(evidences: Iterable[_EvidenceRow]) -> list[dict[str
 
 
 def parse_evidence_from_csv_files(file_paths: Iterable[Path]) -> list[_EvidenceRow]:
-    """Parse evidence rows from heterogeneous provider CSV exports."""
+    """Parse evidence rows from heterogeneous provider CSV exports.
+
+    Supported shapes include current MillionVerifier-style and
+    EmailListVerify-style columns. Invalid/malformed rows are skipped.
+
+    Args:
+        file_paths: CSV file paths to parse.
+
+    Returns:
+        Parsed normalized evidence rows.
+    """
     parsed: list[_EvidenceRow] = []
     for path in file_paths:
         if path.suffix.lower() != ".csv":
@@ -678,7 +749,7 @@ def _record_from_fallback(
     }
 
 
-def get_domain_rating_info_cached(
+def _get_domain_rating_info_cached(
     *,
     domain: str,
     d1_store: DomainRatingsStore,
@@ -694,6 +765,25 @@ def get_domain_rating_info_cached(
     2) D1 store
     3) MillionVerifier fallback only if ``fallback_email`` is provided and the
        client is available.
+
+    This is an internal helper used by intent-first public wrappers.
+
+    Args:
+        domain: Domain to lookup.
+        d1_store: Domain-ratings storage backend (typically D1).
+        kv_cache: Optional cache backend for hot-key lookups.
+        millionverifier_client: Optional client for live fallback lookups.
+        fallback_email: Optional email used for provider fallback when domain
+            is missing from D1/KV. The email domain must match ``domain``.
+        ttl_hours: KV cache TTL in hours.
+
+    Returns:
+        A normalized response dictionary with status, verdict, confidence,
+        naming-format distribution, and source metadata.
+
+    Raises:
+        ValueError: If domain/email input is invalid or fallback email domain
+            does not match the requested domain.
     """
     normalized_domain = _normalize_domain(domain)
     cache_key = _cache_key_for_domain(normalized_domain)

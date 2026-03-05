@@ -21,6 +21,16 @@ Instructions for AI coding agents working in this repository.
 - Add concise docstrings for public functions.
 - Add or update tests for every new helper or behavior change.
 
+## Documentation Policy
+
+- When a code change affects public functions/classes/modules, update user-facing
+  documentation in the same branch/commit:
+  - `README.md` (usage, behavior, examples, configuration)
+  - In-code docstrings used by `pdoc` (thorough, not minimal one-liners)
+- Regenerate `docs/API_REFERENCE.html` via:
+  - `python scripts/generate_api_docs.py`
+- Treat API docs as part of the deliverable, not an optional follow-up.
+
 ## Changelog Policy
 
 - Maintain `CHANGELOG.md` for all meaningful changes.
