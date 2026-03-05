@@ -266,10 +266,13 @@ common_functions    </h1>
 
             <div class="docstring"><p>Return known free mailbox provider domains.</p>
 
-<p>Returns:
-    A lowercased set of domains (for example <code>gmail.com</code>), including
-    built-in defaults and optional values from
-    <code>data/free_provider_domains.txt</code>.</p>
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p>A lowercased set of domains (for example <code>gmail.com</code>), including
+  built-in defaults and optional values from
+  <code>data/free_provider_domains.txt</code>.</p>
+</blockquote>
 </div>
 
 
@@ -300,9 +303,12 @@ common_functions    </h1>
 
             <div class="docstring"><p>Return known disposable/temporary mailbox provider domains.</p>
 
-<p>Returns:
-    A lowercased set of domains, including built-in defaults and values
-    loaded from <code>data/disposable_domains.txt</code>.</p>
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p>A lowercased set of domains, including built-in defaults and values
+  loaded from <code>data/disposable_domains.txt</code>.</p>
+</blockquote>
 </div>
 
 
@@ -367,11 +373,17 @@ common_functions    </h1>
 local parts such as <code>info</code> and <code>support</code>, as well as numeric-only and
 malformed values.</p>
 
-<p>Args:
-    email: Email address to classify.</p>
+<h6 id="arguments">Arguments:</h6>
 
-<p>Returns:
-    <code>True</code> when the local part looks person-like, else <code>False</code>.</p>
+<ul>
+<li><strong>email:</strong>  Email address to classify.</li>
+</ul>
+
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p><code>True</code> when the local part looks person-like, else <code>False</code>.</p>
+</blockquote>
 </div>
 
 
@@ -417,12 +429,18 @@ malformed values.</p>
 <p>Supports subdomains through suffix matching, so
 <code>user@mail.gmx.com</code> can match <code>gmx.com</code> in the provider set.</p>
 
-<p>Args:
-    domain_or_email: Domain (for example <code>gmail.com</code>) or email address
-        (for example <code>person@gmail.com</code>) to classify.</p>
+<h6 id="arguments">Arguments:</h6>
 
-<p>Returns:
-    <code>True</code> if the domain is in the free-provider dataset, else <code>False</code>.</p>
+<ul>
+<li><strong>domain_or_email:</strong>  Domain (for example <code>gmail.com</code>) or email address
+(for example <code>person@gmail.com</code>) to classify.</li>
+</ul>
+
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p><code>True</code> if the domain is in the free-provider dataset, else <code>False</code>.</p>
+</blockquote>
 </div>
 
 
@@ -494,13 +512,19 @@ malformed values.</p>
 
 <p>Supports subdomain suffix matching against the disposable dataset.</p>
 
-<p>Args:
-    domain_or_email: Domain (for example <code>mailinator.com</code>) or email
-        address (for example <code>test@mailinator.com</code>) to classify.</p>
+<h6 id="arguments">Arguments:</h6>
 
-<p>Returns:
-    <code>True</code> if the domain is in the disposable-domain dataset, else
-    <code>False</code>.</p>
+<ul>
+<li><strong>domain_or_email:</strong>  Domain (for example <code>mailinator.com</code>) or email
+address (for example <code>test@mailinator.com</code>) to classify.</li>
+</ul>
+
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p><code>True</code> if the domain is in the disposable-domain dataset, else
+  <code>False</code>.</p>
+</blockquote>
 </div>
 
 
@@ -597,10 +621,13 @@ malformed values.</p>
 
             <div class="docstring"><p>Configuration required for Cloudflare KV REST operations.</p>
 
-<p>Attributes:
-    account_id: Cloudflare account identifier.
-    namespace_id: KV namespace identifier.
-    api_token: API token with KV permissions.</p>
+<h6 id="attributes">Attributes:</h6>
+
+<ul>
+<li><strong>account_id:</strong>  Cloudflare account identifier.</li>
+<li><strong>namespace_id:</strong>  KV namespace identifier.</li>
+<li><strong>api_token:</strong>  API token with KV permissions.</li>
+</ul>
 </div>
 
 
@@ -708,11 +735,17 @@ malformed values.</p>
 <li><code>CF_API_TOKEN</code></li>
 </ul>
 
-<p>Returns:
-    Populated <code><a href="#CloudflareKVConfig">CloudflareKVConfig</a></code>.</p>
+<h6 id="returns">Returns:</h6>
 
-<p>Raises:
-    ValueError: If one or more required variables are missing.</p>
+<blockquote>
+  <p>Populated <code><a href="#CloudflareKVConfig">CloudflareKVConfig</a></code>.</p>
+</blockquote>
+
+<h6 id="raises">Raises:</h6>
+
+<ul>
+<li><strong>ValueError:</strong>  If one or more required variables are missing.</li>
+</ul>
 </div>
 
 
@@ -865,12 +898,18 @@ malformed values.</p>
 
             <div class="docstring"><p>Fetch and decode a KV value.</p>
 
-<p>Args:
-    key: Exact KV key.</p>
+<h6 id="arguments">Arguments:</h6>
 
-<p>Returns:
-    Parsed JSON value as a dictionary, or <code>None</code> when the key does
-    not exist or has empty content.</p>
+<ul>
+<li><strong>key:</strong>  Exact KV key.</li>
+</ul>
+
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p>Parsed JSON value as a dictionary, or <code>None</code> when the key does
+  not exist or has empty content.</p>
+</blockquote>
 </div>
 
 
@@ -910,9 +949,12 @@ malformed values.</p>
 
             <div class="docstring"><p>Store a dictionary value in KV as JSON.</p>
 
-<p>Args:
-    key: KV key.
-    value: JSON-serializable dictionary payload.</p>
+<h6 id="arguments">Arguments:</h6>
+
+<ul>
+<li><strong>key:</strong>  KV key.</li>
+<li><strong>value:</strong>  JSON-serializable dictionary payload.</li>
+</ul>
 </div>
 
 
@@ -983,10 +1025,13 @@ malformed values.</p>
 
             <div class="docstring"><p>Configuration required for Cloudflare D1 REST operations.</p>
 
-<p>Attributes:
-    account_id: Cloudflare account identifier.
-    database_id: D1 database identifier (UUID), not the binding name.
-    api_token: API token with D1 query permissions.</p>
+<h6 id="attributes">Attributes:</h6>
+
+<ul>
+<li><strong>account_id:</strong>  Cloudflare account identifier.</li>
+<li><strong>database_id:</strong>  D1 database identifier (UUID), not the binding name.</li>
+<li><strong>api_token:</strong>  API token with D1 query permissions.</li>
+</ul>
 </div>
 
 
@@ -1094,11 +1139,17 @@ malformed values.</p>
 <li><code>CF_API_TOKEN</code></li>
 </ul>
 
-<p>Returns:
-    Populated <code><a href="#CloudflareD1Config">CloudflareD1Config</a></code>.</p>
+<h6 id="returns">Returns:</h6>
 
-<p>Raises:
-    ValueError: If one or more required variables are missing.</p>
+<blockquote>
+  <p>Populated <code><a href="#CloudflareD1Config">CloudflareD1Config</a></code>.</p>
+</blockquote>
+
+<h6 id="raises">Raises:</h6>
+
+<ul>
+<li><strong>ValueError:</strong>  If one or more required variables are missing.</li>
+</ul>
 </div>
 
 
@@ -1341,11 +1392,17 @@ serializes nested dictionaries/lists into JSON columns.</p>
 
             <div class="docstring"><p>Return one normalized domain-rating record from D1.</p>
 
-<p>Args:
-    domain: Domain to query.</p>
+<h6 id="arguments">Arguments:</h6>
 
-<p>Returns:
-    A normalized domain-rating dictionary if found, else <code>None</code>.</p>
+<ul>
+<li><strong>domain:</strong>  Domain to query.</li>
+</ul>
+
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p>A normalized domain-rating dictionary if found, else <code>None</code>.</p>
+</blockquote>
 </div>
 
 
@@ -1416,10 +1473,13 @@ serializes nested dictionaries/lists into JSON columns.</p>
 
             <div class="docstring"><p>Insert or update one domain-rating record in D1.</p>
 
-<p>Args:
-    record: Aggregated domain-rating payload matching the storage schema.
-        Nested structures (counts, naming-format distribution) are
-        serialized to JSON automatically.</p>
+<h6 id="arguments">Arguments:</h6>
+
+<ul>
+<li><strong>record:</strong>  Aggregated domain-rating payload matching the storage schema.
+Nested structures (counts, naming-format distribution) are
+serialized to JSON automatically.</li>
+</ul>
 </div>
 
 
@@ -1551,11 +1611,17 @@ raw JSON so callers can preserve provider payload fidelity.</p>
 
             <div class="docstring"><p>Build a client from <code>MILLIONVERIFIER_API_KEY</code>.</p>
 
-<p>Returns:
-    Configured <code><a href="#MillionVerifierClient">MillionVerifierClient</a></code>.</p>
+<h6 id="returns">Returns:</h6>
 
-<p>Raises:
-    ValueError: If the environment variable is missing or blank.</p>
+<blockquote>
+  <p>Configured <code><a href="#MillionVerifierClient">MillionVerifierClient</a></code>.</p>
+</blockquote>
+
+<h6 id="raises">Raises:</h6>
+
+<ul>
+<li><strong>ValueError:</strong>  If the environment variable is missing or blank.</li>
+</ul>
 </div>
 
 
@@ -1597,11 +1663,17 @@ raw JSON so callers can preserve provider payload fidelity.</p>
 
             <div class="docstring"><p>Verify one email address via MillionVerifier.</p>
 
-<p>Args:
-    email: Email address to verify.</p>
+<h6 id="arguments">Arguments:</h6>
 
-<p>Returns:
-    Raw decoded JSON payload from MillionVerifier.</p>
+<ul>
+<li><strong>email:</strong>  Email address to verify.</li>
+</ul>
+
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p>Raw decoded JSON payload from MillionVerifier.</p>
+</blockquote>
 </div>
 
 
@@ -1773,11 +1845,17 @@ from Hunter endpoints so callers can preserve full payload fidelity.</p>
 
             <div class="docstring"><p>Build a client from <code>HUNTER_API_KEY</code>.</p>
 
-<p>Returns:
-    Configured <code><a href="#HunterClient">HunterClient</a></code>.</p>
+<h6 id="returns">Returns:</h6>
 
-<p>Raises:
-    ValueError: If <code>HUNTER_API_KEY</code> is missing/blank.</p>
+<blockquote>
+  <p>Configured <code><a href="#HunterClient">HunterClient</a></code>.</p>
+</blockquote>
+
+<h6 id="raises">Raises:</h6>
+
+<ul>
+<li><strong>ValueError:</strong>  If <code>HUNTER_API_KEY</code> is missing/blank.</li>
+</ul>
 </div>
 
 
@@ -1812,12 +1890,18 @@ from Hunter endpoints so callers can preserve full payload fidelity.</p>
 
             <div class="docstring"><p>Call Hunter <code>/domain-search</code>.</p>
 
-<p>Args:
-    domain: Domain to search.
-    limit: Optional result limit passed through to Hunter.</p>
+<h6 id="arguments">Arguments:</h6>
 
-<p>Returns:
-    Raw Hunter JSON response as a dictionary.</p>
+<ul>
+<li><strong>domain:</strong>  Domain to search.</li>
+<li><strong>limit:</strong>  Optional result limit passed through to Hunter.</li>
+</ul>
+
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p>Raw Hunter JSON response as a dictionary.</p>
+</blockquote>
 </div>
 
 
@@ -1866,14 +1950,20 @@ from Hunter endpoints so callers can preserve full payload fidelity.</p>
 
             <div class="docstring"><p>Call Hunter <code>/email-finder</code>.</p>
 
-<p>Args:
-    domain: Company domain.
-    first_name: Contact first name.
-    last_name: Contact last name.
-    company: Optional company name hint.</p>
+<h6 id="arguments">Arguments:</h6>
 
-<p>Returns:
-    Raw Hunter JSON response as a dictionary.</p>
+<ul>
+<li><strong>domain:</strong>  Company domain.</li>
+<li><strong>first_name:</strong>  Contact first name.</li>
+<li><strong>last_name:</strong>  Contact last name.</li>
+<li><strong>company:</strong>  Optional company name hint.</li>
+</ul>
+
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p>Raw Hunter JSON response as a dictionary.</p>
+</blockquote>
 </div>
 
 
@@ -1905,11 +1995,17 @@ from Hunter endpoints so callers can preserve full payload fidelity.</p>
 
             <div class="docstring"><p>Call Hunter <code>/email-verifier</code> for a single email address.</p>
 
-<p>Args:
-    email: Email address to verify.</p>
+<h6 id="arguments">Arguments:</h6>
 
-<p>Returns:
-    Raw Hunter JSON response containing status/result details.</p>
+<ul>
+<li><strong>email:</strong>  Email address to verify.</li>
+</ul>
+
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p>Raw Hunter JSON response containing status/result details.</p>
+</blockquote>
 </div>
 
 
@@ -1972,17 +2068,26 @@ from Hunter endpoints so callers can preserve full payload fidelity.</p>
 
             <div class="docstring"><p>Return Hunter domain-search data with optional cache lookup.</p>
 
-<p>Cache key format:
-    <code>hunter:domain-search:{normalized_domain}</code></p>
+<h6 id="cache-key-format">Cache key format:</h6>
 
-<p>Args:
-    domain: Domain to search.
-    hunter_client: Configured Hunter client.
-    cache_store: Optional cache backend implementing <code>CacheStore</code>.
-    ttl_hours: Cache TTL in hours (default 30 days).</p>
+<blockquote>
+  <p><code>hunter:domain-search:{normalized_domain}</code></p>
+</blockquote>
 
-<p>Returns:
-    Hunter domain-search response payload.</p>
+<h6 id="arguments">Arguments:</h6>
+
+<ul>
+<li><strong>domain:</strong>  Domain to search.</li>
+<li><strong>hunter_client:</strong>  Configured Hunter client.</li>
+<li><strong>cache_store:</strong>  Optional cache backend implementing <code>CacheStore</code>.</li>
+<li><strong>ttl_hours:</strong>  Cache TTL in hours (default 30 days).</li>
+</ul>
+
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p>Hunter domain-search response payload.</p>
+</blockquote>
 </div>
 
 
@@ -2044,17 +2149,26 @@ from Hunter endpoints so callers can preserve full payload fidelity.</p>
 
             <div class="docstring"><p>Return Hunter email-verification data with optional caching.</p>
 
-<p>Cache key format:
-    <code>hunter:email-verifier:{normalized_email}</code></p>
+<h6 id="cache-key-format">Cache key format:</h6>
 
-<p>Args:
-    email: Email address to verify.
-    hunter_client: Configured Hunter client.
-    cache_store: Optional cache backend implementing <code>CacheStore</code>.
-    ttl_hours: Cache TTL in hours (default 30 days).</p>
+<blockquote>
+  <p><code>hunter:email-verifier:{normalized_email}</code></p>
+</blockquote>
 
-<p>Returns:
-    Hunter email-verifier response payload.</p>
+<h6 id="arguments">Arguments:</h6>
+
+<ul>
+<li><strong>email:</strong>  Email address to verify.</li>
+<li><strong>hunter_client:</strong>  Configured Hunter client.</li>
+<li><strong>cache_store:</strong>  Optional cache backend implementing <code>CacheStore</code>.</li>
+<li><strong>ttl_hours:</strong>  Cache TTL in hours (default 30 days).</li>
+</ul>
+
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p>Hunter email-verifier response payload.</p>
+</blockquote>
 </div>
 
 
@@ -2175,21 +2289,33 @@ from Hunter endpoints so callers can preserve full payload fidelity.</p>
 available, verifies the first discovered email value.</li>
 </ul>
 
-<p>The combined result is also cached under:
-    <code>hunter:domain-email-info:{input_type}:{normalized_value}</code></p>
+<h6 id="the-combined-result-is-also-cached-under">The combined result is also cached under:</h6>
 
-<p>Args:
-    domain_or_email: Domain (<code>example.com</code>) or email
-        (<code>person@example.com</code>).
-    hunter_client: Configured Hunter client.
-    cache_store: Optional cache backend implementing <code>CacheStore</code>.
-    ttl_hours: Cache TTL in hours (default 30 days).</p>
+<blockquote>
+  <p><code>hunter:domain-email-info:{input_type}:{normalized_value}</code></p>
+</blockquote>
 
-<p>Returns:
-    A dictionary with normalized input metadata and nested Hunter payloads.</p>
+<h6 id="arguments">Arguments:</h6>
 
-<p>Raises:
-    ValueError: If input is empty or not a valid domain/email format.</p>
+<ul>
+<li><strong>domain_or_email:</strong>  Domain (<code>example.com</code>) or email
+(<code>person@example.com</code>).</li>
+<li><strong>hunter_client:</strong>  Configured Hunter client.</li>
+<li><strong>cache_store:</strong>  Optional cache backend implementing <code>CacheStore</code>.</li>
+<li><strong>ttl_hours:</strong>  Cache TTL in hours (default 30 days).</li>
+</ul>
+
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p>A dictionary with normalized input metadata and nested Hunter payloads.</p>
+</blockquote>
+
+<h6 id="raises">Raises:</h6>
+
+<ul>
+<li><strong>ValueError:</strong>  If input is empty or not a valid domain/email format.</li>
+</ul>
 </div>
 
 
@@ -2308,43 +2434,60 @@ Uses Hunter domain/email intelligence via
 <code><a href="#get_domain_or_email_info_cached">get_domain_or_email_info_cached()</a></code>.</li>
 </ul>
 
-<p>Args:
-    domain: Domain to look up, for example <code>example.com</code>.
-    source: Backend source strategy:
-        - <code>"ratings"</code>: merged-domain records (D1/KV + optional fallback)
-        - <code>"hunter"</code>: Hunter lookup path
-    d1_store: Ratings storage backend. Required when <code>source="ratings"</code>.
-    kv_cache: Optional cache backend used by ratings lookups.
-    millionverifier_client: Optional client for live fallback on ratings
-        misses.
-    fallback_email: Optional email used only for ratings fallback. Must
-        belong to the same domain.
-    hunter_client: Hunter API client. Required when <code>source="hunter"</code>.
-    hunter_cache_store: Optional cache backend used by Hunter helper.
-    ttl_hours: Cache TTL in hours for the selected backend helper.</p>
+<h6 id="arguments">Arguments:</h6>
 
-<p>Returns:
-    A dictionary payload returned by the chosen backend helper. The shape is
-    backend-specific:
-    - ratings source returns domain-rating fields such as <code>verdict</code> and
-      <code>naming_format</code>.
-    - hunter source returns Hunter-oriented fields such as
-      <code>domain_search</code> and <code>email_verification</code>.</p>
+<ul>
+<li><strong>domain:</strong>  Domain to look up, for example <code>example.com</code>.</li>
+<li><strong>source:</strong>  Backend source strategy:
+<ul>
+<li><code>"ratings"</code>: merged-domain records (D1/KV + optional fallback)</li>
+<li><code>"hunter"</code>: Hunter lookup path</li>
+</ul></li>
+<li><strong>d1_store:</strong>  Ratings storage backend. Required when <code>source="ratings"</code>.</li>
+<li><strong>kv_cache:</strong>  Optional cache backend used by ratings lookups.</li>
+<li><strong>millionverifier_client:</strong>  Optional client for live fallback on ratings
+misses.</li>
+<li><strong>fallback_email:</strong>  Optional email used only for ratings fallback. Must
+belong to the same domain.</li>
+<li><strong>hunter_client:</strong>  Hunter API client. Required when <code>source="hunter"</code>.</li>
+<li><strong>hunter_cache_store:</strong>  Optional cache backend used by Hunter helper.</li>
+<li><strong>ttl_hours:</strong>  Cache TTL in hours for the selected backend helper.</li>
+</ul>
 
-<p>Raises:
-    ValueError: If required dependencies for the selected source are
-        missing, or if an unsupported source is requested.</p>
+<h6 id="returns">Returns:</h6>
 
-<p>Example:
-    Use merged ratings as the default source::</p>
+<blockquote>
+  <p>A dictionary payload returned by the chosen backend helper. The shape is
+  backend-specific:</p>
+  
+  <ul>
+  <li>ratings source returns domain-rating fields such as <code>verdict</code> and
+  <code>naming_format</code>.</li>
+  <li>hunter source returns Hunter-oriented fields such as
+  <code>domain_search</code> and <code>email_verification</code>.</li>
+  </ul>
+</blockquote>
 
-<pre><code>    result = lookup_domain(
-        domain="example.com",
-        source="ratings",
-        d1_store=ratings_store,
-        kv_cache=kv_cache,
-    )
+<h6 id="raises">Raises:</h6>
+
+<ul>
+<li><strong>ValueError:</strong>  If required dependencies for the selected source are
+missing, or if an unsupported source is requested.</li>
+</ul>
+
+<h6 id="example">Example:</h6>
+
+<blockquote>
+  <p>Use merged ratings as the default source::</p>
+
+<pre><code>result = lookup_domain(
+    domain="example.com",
+    source="ratings",
+    d1_store=ratings_store,
+    kv_cache=kv_cache,
+)
 </code></pre>
+</blockquote>
 </div>
 
 
@@ -2452,36 +2595,50 @@ Resolves the email domain and performs ratings lookup, enabling
 email-driven fallback when the domain is missing from stored ratings.</li>
 </ul>
 
-<p>Args:
-    email: Email address to look up, for example <code>person@example.com</code>.
-    source: Backend source strategy:
-        - <code>"hunter"</code>: verify/search via Hunter helper path.
-        - <code>"ratings"</code>: domain-ratings lookup + fallback using this email.
-    hunter_client: Hunter API client. Required for <code>source="hunter"</code>.
-    hunter_cache_store: Optional cache backend for Hunter lookups.
-    d1_store: Ratings storage backend. Required for <code>source="ratings"</code>.
-    kv_cache: Optional cache backend for ratings lookups.
-    millionverifier_client: Optional fallback client for ratings lookups.
-    ttl_hours: Cache TTL in hours for the selected backend helper.</p>
+<h6 id="arguments">Arguments:</h6>
 
-<p>Returns:
-    A dictionary payload returned by the selected backend helper.</p>
+<ul>
+<li><strong>email:</strong>  Email address to look up, for example <code>person@example.com</code>.</li>
+<li><strong>source:</strong>  Backend source strategy:
+<ul>
+<li><code>"hunter"</code>: verify/search via Hunter helper path.</li>
+<li><code>"ratings"</code>: domain-ratings lookup + fallback using this email.</li>
+</ul></li>
+<li><strong>hunter_client:</strong>  Hunter API client. Required for <code>source="hunter"</code>.</li>
+<li><strong>hunter_cache_store:</strong>  Optional cache backend for Hunter lookups.</li>
+<li><strong>d1_store:</strong>  Ratings storage backend. Required for <code>source="ratings"</code>.</li>
+<li><strong>kv_cache:</strong>  Optional cache backend for ratings lookups.</li>
+<li><strong>millionverifier_client:</strong>  Optional fallback client for ratings lookups.</li>
+<li><strong>ttl_hours:</strong>  Cache TTL in hours for the selected backend helper.</li>
+</ul>
 
-<p>Raises:
-    ValueError: If required dependencies for the selected source are
-        missing, if email format is invalid for ratings lookup, or if an
-        unsupported source is requested.</p>
+<h6 id="returns">Returns:</h6>
 
-<p>Example:
-    Lookup using ratings backend with email-driven fallback::</p>
+<blockquote>
+  <p>A dictionary payload returned by the selected backend helper.</p>
+</blockquote>
 
-<pre><code>    result = lookup_email(
-        email="person@example.com",
-        source="ratings",
-        d1_store=ratings_store,
-        millionverifier_client=mv_client,
-    )
+<h6 id="raises">Raises:</h6>
+
+<ul>
+<li><strong>ValueError:</strong>  If required dependencies for the selected source are
+missing, if email format is invalid for ratings lookup, or if an
+unsupported source is requested.</li>
+</ul>
+
+<h6 id="example">Example:</h6>
+
+<blockquote>
+  <p>Lookup using ratings backend with email-driven fallback::</p>
+
+<pre><code>result = lookup_email(
+    email="person@example.com",
+    source="ratings",
+    d1_store=ratings_store,
+    millionverifier_client=mv_client,
+)
 </code></pre>
+</blockquote>
 </div>
 
 

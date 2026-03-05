@@ -28,6 +28,8 @@ def main() -> int:
             "-m",
             "pdoc",
             "common_functions",
+            "--docformat",
+            "google",
             "--no-search",
             "-o",
             str(temp_dir),
