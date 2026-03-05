@@ -13,8 +13,9 @@ This repository starts with email-focused helpers (for example, checking whether
 ## Planned Functionality
 
 - `is_personalized_email(email: str) -> bool`
-- `is_disposable_email(email: str) -> bool`
-- `is_free_provider_email(email: str) -> bool`
+- `is_disposable_domain(domain_or_email: str) -> bool`
+- `is_free_provider_domain(domain_or_email: str) -> bool`
+- `get_domain_rating_info_cached(domain: str, ...) -> dict`
 - Additional common validation and normalization helpers (to be added).
 
 ## Local Development (venv)
@@ -101,6 +102,48 @@ Recommended strategy:
 4. Apply TTL/refresh policy based on data volatility and credit cost.
 
 This keeps recurring lookups cheaper and avoids recomputing/re-extracting expensive data.
+
+## Domain Ratings + Naming Format (Merged Lists)
+
+This repository now supports domain-level intelligence merged from historical
+verification CSV exports under `millionverifierlists/lists`.
+
+The lookup helper:
+
+- `get_domain_rating_info_cached(...)`
+
+returns:
+
+- domain verdict (`good`/`risky`/`bad`)
+- evidence counts and provider/schema coverage
+- naming format summary and full format distribution with counts (for example
+  `{first}{last}: 3`, `{first}_{last}: 1`)
+
+Storage pattern:
+
+- Cloudflare `D1` as source of truth for merged domain records
+- Cloudflare `KV` as read-through cache
+
+Optional fallback:
+
+- If a domain is missing from D1/KV, pass `fallback_email` and a
+  `MillionVerifierClient` to fetch a live result and persist it.
+
+Required env vars for live fallback/store clients:
+
+```text
+MILLIONVERIFIER_API_KEY=...
+CF_ACCOUNT_ID=...
+CF_D1_DATABASE_ID=...
+CF_API_TOKEN=...
+```
+
+Dataset build + sync commands:
+
+```powershell
+python scripts/build_domain_ratings_dataset.py
+python scripts/sync_domain_ratings_to_d1.py --database <d1_db_name> --remote
+```
 
 ### Dataset Remark (2026-03-04)
 

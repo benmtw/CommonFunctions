@@ -80,6 +80,24 @@ def _split_email(email: str) -> tuple[str, str] | None:
     return local, domain
 
 
+def _normalize_domain(domain: str) -> str | None:
+    if not isinstance(domain, str):
+        return None
+
+    normalized = domain.strip().lower()
+    if not normalized:
+        return None
+    if "@" in normalized:
+        return None
+    if "." not in normalized:
+        return None
+    if normalized.startswith(".") or normalized.endswith("."):
+        return None
+    if ".." in normalized:
+        return None
+    return normalized
+
+
 def _domain_in_set(domain: str, domains: set[str]) -> bool:
     if domain in domains:
         return True
@@ -173,39 +191,65 @@ def is_personalized_email(email: str) -> bool:
     return True
 
 
-def is_free_provider_email(email: str) -> bool:
-    """Return whether an email belongs to a known free mailbox provider.
+def is_free_provider_domain(domain_or_email: str) -> bool:
+    """Return whether a domain/email belongs to a known free provider.
 
     Supports subdomains through suffix matching, so
     ``user@mail.gmx.com`` can match ``gmx.com`` in the provider set.
 
     Args:
-        email: Email address to classify.
+        domain_or_email: Domain (for example ``gmail.com``) or email address
+            (for example ``person@gmail.com``) to classify.
 
     Returns:
         ``True`` if the domain is in the free-provider dataset, else ``False``.
     """
-    parsed = _split_email(email)
-    if parsed is None:
+    parsed = _split_email(domain_or_email)
+    if parsed is not None:
+        _local, domain = parsed
+        return _domain_in_set(domain, get_free_provider_domains())
+
+    domain = _normalize_domain(domain_or_email)
+    if domain is None:
         return False
-    _local, domain = parsed
     return _domain_in_set(domain, get_free_provider_domains())
 
 
-def is_disposable_email(email: str) -> bool:
-    """Return whether an email belongs to a known disposable provider.
+def is_free_provider_email(email: str) -> bool:
+    """Backward-compatible wrapper for free-provider classification by email.
+
+    Prefer :func:`is_free_provider_domain` for new code.
+    """
+    return is_free_provider_domain(email)
+
+
+def is_disposable_domain(domain_or_email: str) -> bool:
+    """Return whether a domain/email belongs to a known disposable provider.
 
     Supports subdomain suffix matching against the disposable dataset.
 
     Args:
-        email: Email address to classify.
+        domain_or_email: Domain (for example ``mailinator.com``) or email
+            address (for example ``test@mailinator.com``) to classify.
 
     Returns:
         ``True`` if the domain is in the disposable-domain dataset, else
         ``False``.
     """
-    parsed = _split_email(email)
-    if parsed is None:
+    parsed = _split_email(domain_or_email)
+    if parsed is not None:
+        _local, domain = parsed
+        return _domain_in_set(domain, get_disposable_domains())
+
+    domain = _normalize_domain(domain_or_email)
+    if domain is None:
         return False
-    _local, domain = parsed
     return _domain_in_set(domain, get_disposable_domains())
+
+
+def is_disposable_email(email: str) -> bool:
+    """Backward-compatible wrapper for disposable-provider classification.
+
+    Prefer :func:`is_disposable_domain` for new code.
+    """
+    return is_disposable_domain(email)
