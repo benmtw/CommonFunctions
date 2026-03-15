@@ -32,6 +32,7 @@ All notable changes to this project will be documented in this file.
 - Updated D1 examples to use project-prefixed DB name: `commonfunctions_disposable_domains`.
 - Improved D1 sync script compatibility for Windows `wrangler` resolution and D1 statement-size constraints.
 - Expanded public module/function/class docstrings so generated `pdoc` API docs include richer usage and contract details.
+- (2026-03-15) Updated `lookup_domain(...)` and `lookup_email(...)` ratings mode to auto-initialize a Cloudflare D1 store from `CF_ACCOUNT_ID`, `CF_D1_DATABASE_ID`, and `CF_API_TOKEN` when `d1_store` is omitted.
 - (2026-03-04) Added domain-first helper names:
   - `is_free_provider_domain(domain_or_email: str) -> bool`
   - `is_disposable_domain(domain_or_email: str) -> bool`

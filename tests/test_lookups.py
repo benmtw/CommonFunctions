@@ -107,10 +107,10 @@ def test_lookup_email_ratings_source_uses_email_domain():
     assert result["input_domain"] == "example.com"
 
 
-def test_lookup_domain_requires_store_for_ratings():
+def test_lookup_domain_raises_if_no_store_and_no_d1_env():
     try:
         lookup_domain(domain="example.com", source="ratings")
     except ValueError as exc:
-        assert "d1_store" in str(exc)
+        assert "CF_ACCOUNT_ID" in str(exc)
     else:
-        raise AssertionError("Expected ValueError when d1_store is missing")
+        raise AssertionError("Expected ValueError when D1 config is missing")

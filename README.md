@@ -157,6 +157,14 @@ They provide a stable, intent-first interface and route to the configured
 backend source (`ratings` or `hunter`) while preserving backward compatibility
 with existing lower-level helpers.
 
+For `source="ratings"`, you can either:
+
+- pass `d1_store=...` explicitly, or
+- omit `d1_store` and let the helper initialize a Cloudflare D1 store from:
+  - `CF_ACCOUNT_ID`
+  - `CF_D1_DATABASE_ID`
+  - `CF_API_TOKEN`
+
 ### Dataset Remark (2026-03-04)
 
 The disposable domain dataset at `src/common_functions/data/disposable_domains.txt` was refreshed from the top 3 starred, actively maintained GitHub sources below, then merged and deduplicated:

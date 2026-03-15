@@ -17,6 +17,8 @@ from typing import Any, Literal
 
 from .domain_ratings import (
     CacheStore as RatingsCacheStore,
+    CloudflareD1Config,
+    CloudflareD1DomainRatingsStore,
     DomainRatingsStore,
     MillionVerifierClient,
     _get_domain_rating_info_cached,
@@ -30,6 +32,18 @@ from .hunter import (
 
 DomainLookupSource = Literal["ratings", "hunter"]
 EmailLookupSource = Literal["hunter", "ratings"]
+
+
+def _resolve_ratings_store(d1_store: DomainRatingsStore | None) -> DomainRatingsStore:
+    """Return an explicit ratings store or build a default D1-backed store.
+
+    If ``d1_store`` is provided, it is returned as-is. Otherwise, this helper
+    attempts to construct a Cloudflare D1 store from environment variables via
+    :class:`CloudflareD1Config`.
+    """
+    if d1_store is not None:
+        return d1_store
+    return CloudflareD1DomainRatingsStore(CloudflareD1Config.from_env())
 
 
 def lookup_domain(
@@ -62,7 +76,9 @@ def lookup_domain(
         source: Backend source strategy:
             - ``"ratings"``: merged-domain records (D1/KV + optional fallback)
             - ``"hunter"``: Hunter lookup path
-        d1_store: Ratings storage backend. Required when ``source="ratings"``.
+        d1_store: Optional ratings storage backend. If omitted for
+            ``source="ratings"``, a Cloudflare D1-backed store is initialized
+            from ``CF_ACCOUNT_ID``, ``CF_D1_DATABASE_ID``, and ``CF_API_TOKEN``.
         kv_cache: Optional cache backend used by ratings lookups.
         millionverifier_client: Optional client for live fallback on ratings
             misses.
@@ -82,7 +98,8 @@ def lookup_domain(
 
     Raises:
         ValueError: If required dependencies for the selected source are
-            missing, or if an unsupported source is requested.
+            missing, if D1 env vars are missing when auto-initializing the
+            ratings store, or if an unsupported source is requested.
 
     Example:
         Use merged ratings as the default source::
@@ -95,11 +112,10 @@ def lookup_domain(
             )
     """
     if source == "ratings":
-        if d1_store is None:
-            raise ValueError("d1_store is required when source='ratings'.")
+        resolved_store = _resolve_ratings_store(d1_store)
         return _get_domain_rating_info_cached(
             domain=domain,
-            d1_store=d1_store,
+            d1_store=resolved_store,
             kv_cache=kv_cache,
             millionverifier_client=millionverifier_client,
             fallback_email=fallback_email,
@@ -147,7 +163,9 @@ def lookup_email(
             - ``"ratings"``: domain-ratings lookup + fallback using this email.
         hunter_client: Hunter API client. Required for ``source="hunter"``.
         hunter_cache_store: Optional cache backend for Hunter lookups.
-        d1_store: Ratings storage backend. Required for ``source="ratings"``.
+        d1_store: Optional ratings storage backend. If omitted for
+            ``source="ratings"``, a Cloudflare D1-backed store is initialized
+            from ``CF_ACCOUNT_ID``, ``CF_D1_DATABASE_ID``, and ``CF_API_TOKEN``.
         kv_cache: Optional cache backend for ratings lookups.
         millionverifier_client: Optional fallback client for ratings lookups.
         ttl_hours: Cache TTL in hours for the selected backend helper.
@@ -157,8 +175,9 @@ def lookup_email(
 
     Raises:
         ValueError: If required dependencies for the selected source are
-            missing, if email format is invalid for ratings lookup, or if an
-            unsupported source is requested.
+            missing, if D1 env vars are missing when auto-initializing the
+            ratings store, if email format is invalid for ratings lookup, or if
+            an unsupported source is requested.
 
     Example:
         Lookup using ratings backend with email-driven fallback::
@@ -181,14 +200,13 @@ def lookup_email(
         )
 
     if source == "ratings":
-        if d1_store is None:
-            raise ValueError("d1_store is required when source='ratings'.")
+        resolved_store = _resolve_ratings_store(d1_store)
         domain = email.strip().lower().split("@", 1)
         if len(domain) != 2:
             raise ValueError("Invalid email format.")
         return _get_domain_rating_info_cached(
             domain=domain[1],
-            d1_store=d1_store,
+            d1_store=resolved_store,
             kv_cache=kv_cache,
             millionverifier_client=millionverifier_client,
             fallback_email=email,
