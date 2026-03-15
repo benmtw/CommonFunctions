@@ -234,3 +234,39 @@ def test_fetch_remote_with_redirect(monkeypatch):
         "https://newdomain.com",
     ]
     assert result.content == "# New Domain Page"
+
+
+def test_fetch_remote_scrape_do_api_error(monkeypatch):
+    """Scrape.do returns non-200 status (e.g., 500)."""
+    from common_functions.redirects import _fetch_remote, ScrapeDoConfig
+    import http.client
+
+    class _FakeResponse:
+        status = 500
+        reason = "Internal Server Error"
+
+        def getheader(self, name, default=None):
+            return default
+
+        def read(self):
+            return b'{"error": "internal error"}'
+
+    class _FakeConnection:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def request(self, method, path):
+            pass
+
+        def getresponse(self):
+            return _FakeResponse()
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(http.client, "HTTPSConnection", _FakeConnection)
+
+    config = ScrapeDoConfig(api_token="tok123")
+    result = _fetch_remote("failing.com", config, render=False)
+    assert result.status_code == 200  # default when header missing
+    assert result.content == '{"error": "internal error"}'
