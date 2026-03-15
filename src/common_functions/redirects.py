@@ -38,7 +38,7 @@ class ScrapeDoConfig:
         """Load Scrape.do config from environment variables.
 
         Required variables:
-            - ``SCRAPE_DO_API_TOKEN``
+            - ``SCRAPE_DO_API_KEY``
 
         Optional variables:
             - ``SCRAPE_DO_GEO_CODE`` (default ``"gb"``)
@@ -47,12 +47,12 @@ class ScrapeDoConfig:
             Populated :class:`ScrapeDoConfig`.
 
         Raises:
-            ValueError: If ``SCRAPE_DO_API_TOKEN`` is missing or empty.
+            ValueError: If ``SCRAPE_DO_API_KEY`` is missing or empty.
         """
-        api_token = os.getenv("SCRAPE_DO_API_TOKEN", "").strip()
+        api_token = os.getenv("SCRAPE_DO_API_KEY", "").strip()
         if not api_token:
             raise ValueError(
-                "Missing required env var: SCRAPE_DO_API_TOKEN"
+                "Missing required env var: SCRAPE_DO_API_KEY"
             )
         geo_code = os.getenv("SCRAPE_DO_GEO_CODE", "gb").strip()
         return cls(api_token=api_token, geo_code=geo_code)
@@ -77,25 +77,25 @@ class LlmVerifierConfig:
         """Load LLM verifier config from environment variables.
 
         Required variables:
-            - ``MIMO_API_KEY``
+            - ``XIAOMI_API_KEY``
 
         Optional variables:
-            - ``MIMO_BASE_URL`` (default ``"https://api.xiaomimimo.com/v1"``)
-            - ``MIMO_MODEL`` (default ``"mimo-v2-flash"``)
+            - ``XIAOMI_BASE_URL`` (default ``"https://api.xiaomimimo.com/v1"``)
+            - ``XIAOMI_MODEL`` (default ``"mimo-v2-flash"``)
 
         Returns:
             Populated :class:`LlmVerifierConfig`.
 
         Raises:
-            ValueError: If ``MIMO_API_KEY`` is missing or empty.
+            ValueError: If ``XIAOMI_API_KEY`` is missing or empty.
         """
-        api_key = os.getenv("MIMO_API_KEY", "").strip()
+        api_key = os.getenv("XIAOMI_API_KEY", "").strip()
         if not api_key:
-            raise ValueError("Missing required env var: MIMO_API_KEY")
+            raise ValueError("Missing required env var: XIAOMI_API_KEY")
         base_url = os.getenv(
-            "MIMO_BASE_URL", "https://api.xiaomimimo.com/v1"
+            "XIAOMI_BASE_URL", "https://api.xiaomimimo.com/v1"
         ).strip()
-        model = os.getenv("MIMO_MODEL", "mimo-v2-flash").strip()
+        model = os.getenv("XIAOMI_MODEL", "mimo-v2-flash").strip()
         return cls(api_key=api_key, base_url=base_url, model=model)
 
 

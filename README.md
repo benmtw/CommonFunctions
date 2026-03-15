@@ -192,13 +192,13 @@ result = check_redirect(
 - `remote_headless` — Scrape.do with headless browser rendering
 
 **Environment variables (remote strategies):**
-- `SCRAPE_DO_API_TOKEN` — Scrape.do API token
+- `SCRAPE_DO_API_KEY` — Scrape.do API token
 - `SCRAPE_DO_GEO_CODE` — proxy country (default `gb`)
 
 **Environment variables (LLM verification):**
-- `MIMO_API_KEY` — MiMo API key
-- `MIMO_BASE_URL` — API base URL (default `https://api.xiaomimimo.com/v1`)
-- `MIMO_MODEL` — model name (default `mimo-v2-flash`)
+- `XIAOMI_API_KEY` — Xiaomi MiMo API key
+- `XIAOMI_BASE_URL` — API base URL (default `https://api.xiaomimimo.com/v1`)
+- `XIAOMI_MODEL` — model name (default `mimo-v2-flash`)
 
 **Optional dependency:** `pip install common-functions[redirects]` for LLM verification support.
 

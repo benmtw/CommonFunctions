@@ -2,7 +2,7 @@ import os
 
 
 def test_scrape_do_config_from_env(monkeypatch):
-    monkeypatch.setenv("SCRAPE_DO_API_TOKEN", "tok123")
+    monkeypatch.setenv("SCRAPE_DO_API_KEY", "tok123")
     monkeypatch.setenv("SCRAPE_DO_GEO_CODE", "us")
     from common_functions.redirects import ScrapeDoConfig
     cfg = ScrapeDoConfig.from_env()
@@ -12,7 +12,7 @@ def test_scrape_do_config_from_env(monkeypatch):
 
 
 def test_scrape_do_config_from_env_defaults(monkeypatch):
-    monkeypatch.setenv("SCRAPE_DO_API_TOKEN", "tok123")
+    monkeypatch.setenv("SCRAPE_DO_API_KEY", "tok123")
     monkeypatch.delenv("SCRAPE_DO_GEO_CODE", raising=False)
     from common_functions.redirects import ScrapeDoConfig
     cfg = ScrapeDoConfig.from_env()
@@ -20,20 +20,20 @@ def test_scrape_do_config_from_env_defaults(monkeypatch):
 
 
 def test_scrape_do_config_from_env_missing(monkeypatch):
-    monkeypatch.delenv("SCRAPE_DO_API_TOKEN", raising=False)
+    monkeypatch.delenv("SCRAPE_DO_API_KEY", raising=False)
     from common_functions.redirects import ScrapeDoConfig
     try:
         ScrapeDoConfig.from_env()
     except ValueError as exc:
-        assert "SCRAPE_DO_API_TOKEN" in str(exc)
+        assert "SCRAPE_DO_API_KEY" in str(exc)
     else:
         raise AssertionError("Expected ValueError")
 
 
 def test_llm_verifier_config_from_env(monkeypatch):
-    monkeypatch.setenv("MIMO_API_KEY", "key123")
-    monkeypatch.setenv("MIMO_BASE_URL", "https://custom.api/v1")
-    monkeypatch.setenv("MIMO_MODEL", "custom-model")
+    monkeypatch.setenv("XIAOMI_API_KEY", "key123")
+    monkeypatch.setenv("XIAOMI_BASE_URL", "https://custom.api/v1")
+    monkeypatch.setenv("XIAOMI_MODEL", "custom-model")
     from common_functions.redirects import LlmVerifierConfig
     cfg = LlmVerifierConfig.from_env()
     assert cfg.api_key == "key123"
@@ -42,9 +42,9 @@ def test_llm_verifier_config_from_env(monkeypatch):
 
 
 def test_llm_verifier_config_from_env_defaults(monkeypatch):
-    monkeypatch.setenv("MIMO_API_KEY", "key123")
-    monkeypatch.delenv("MIMO_BASE_URL", raising=False)
-    monkeypatch.delenv("MIMO_MODEL", raising=False)
+    monkeypatch.setenv("XIAOMI_API_KEY", "key123")
+    monkeypatch.delenv("XIAOMI_BASE_URL", raising=False)
+    monkeypatch.delenv("XIAOMI_MODEL", raising=False)
     from common_functions.redirects import LlmVerifierConfig
     cfg = LlmVerifierConfig.from_env()
     assert cfg.base_url == "https://api.xiaomimimo.com/v1"
@@ -52,12 +52,12 @@ def test_llm_verifier_config_from_env_defaults(monkeypatch):
 
 
 def test_llm_verifier_config_from_env_missing(monkeypatch):
-    monkeypatch.delenv("MIMO_API_KEY", raising=False)
+    monkeypatch.delenv("XIAOMI_API_KEY", raising=False)
     from common_functions.redirects import LlmVerifierConfig
     try:
         LlmVerifierConfig.from_env()
     except ValueError as exc:
-        assert "MIMO_API_KEY" in str(exc)
+        assert "XIAOMI_API_KEY" in str(exc)
     else:
         raise AssertionError("Expected ValueError")
 
@@ -455,7 +455,7 @@ def test_check_redirect_with_verification(monkeypatch):
 
 
 def test_check_redirect_auto_init_scrape_do_config(monkeypatch):
-    monkeypatch.setenv("SCRAPE_DO_API_TOKEN", "tok123")
+    monkeypatch.setenv("SCRAPE_DO_API_KEY", "tok123")
     from common_functions.redirects import check_redirect, _FetchResult
 
     monkeypatch.setattr(
@@ -474,13 +474,13 @@ def test_check_redirect_auto_init_scrape_do_config(monkeypatch):
 
 
 def test_check_redirect_missing_scrape_do_config(monkeypatch):
-    monkeypatch.delenv("SCRAPE_DO_API_TOKEN", raising=False)
+    monkeypatch.delenv("SCRAPE_DO_API_KEY", raising=False)
     from common_functions.redirects import check_redirect
 
     try:
         check_redirect(domain="example.com", strategy="remote_direct")
     except ValueError as exc:
-        assert "SCRAPE_DO_API_TOKEN" in str(exc)
+        assert "SCRAPE_DO_API_KEY" in str(exc)
     else:
         raise AssertionError("Expected ValueError")
 
