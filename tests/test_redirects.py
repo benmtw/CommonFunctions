@@ -60,3 +60,28 @@ def test_llm_verifier_config_from_env_missing(monkeypatch):
         assert "MIMO_API_KEY" in str(exc)
     else:
         raise AssertionError("Expected ValueError")
+
+
+def test_normalize_domain_strips_and_lowercases():
+    from common_functions.redirects import _normalize_domain
+    assert _normalize_domain("  Example.COM  ") == "example.com"
+
+
+def test_normalize_domain_rejects_empty():
+    from common_functions.redirects import _normalize_domain
+    try:
+        _normalize_domain("")
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("Expected ValueError for empty domain")
+
+
+def test_normalize_domain_rejects_whitespace_in_middle():
+    from common_functions.redirects import _normalize_domain
+    try:
+        _normalize_domain("bad domain.com")
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("Expected ValueError for domain with whitespace")

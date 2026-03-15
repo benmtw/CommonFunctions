@@ -91,3 +91,40 @@ class LlmVerifierConfig:
         ).strip()
         model = os.getenv("MIMO_MODEL", "mimo-v2-flash").strip()
         return cls(api_key=api_key, base_url=base_url, model=model)
+
+
+class OrgInfo(TypedDict, total=False):
+    """Organisation metadata for content verification.
+
+    Attributes:
+        name: Organisation name (required).
+        postcode: Organisation postcode (optional).
+        context: Description of what the organisation is (required).
+    """
+
+    name: Required[str]
+    postcode: str
+    context: Required[str]
+
+
+RedirectStrategy = Literal["local_direct", "remote_direct", "remote_headless"]
+
+
+def _normalize_domain(domain: str) -> str:
+    """Strip, lowercase, and validate a domain string.
+
+    Args:
+        domain: Raw domain input.
+
+    Returns:
+        Cleaned domain string.
+
+    Raises:
+        ValueError: If domain is empty or contains whitespace.
+    """
+    domain = domain.strip().lower()
+    if not domain:
+        raise ValueError("Domain must not be empty.")
+    if any(c.isspace() for c in domain):
+        raise ValueError(f"Invalid domain (contains whitespace): {domain!r}")
+    return domain
