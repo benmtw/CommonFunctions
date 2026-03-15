@@ -10,7 +10,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import os
+import ssl
+import urllib.request
+import urllib.error
 from typing import Any, Literal, Required, TypedDict
+from urllib.parse import urlparse
 
 
 @dataclass(frozen=True)
@@ -108,6 +112,93 @@ class OrgInfo(TypedDict, total=False):
 
 
 RedirectStrategy = Literal["local_direct", "remote_direct", "remote_headless"]
+
+
+@dataclass
+class _FetchResult:
+    """Internal container for fetch strategy results.
+
+    Attributes:
+        final_url: The URL after all redirects resolved.
+        status_code: The initial HTTP status code (before redirects).
+        redirect_chain: Ordered list of URLs visited (original through final).
+        content: Page content (HTML for local, markdown for remote).
+        redirects: Whether the domain redirected to a different URL.
+    """
+
+    final_url: str
+    status_code: int
+    redirect_chain: list[str]
+    content: str
+    redirects: bool
+
+
+_MAX_REDIRECTS = 10
+
+
+class _RedirectTracker(urllib.request.HTTPRedirectHandler):
+    """Custom redirect handler that records each hop."""
+
+    def __init__(self) -> None:
+        self.history: list[tuple[int, str]] = []
+
+    def redirect_request(
+        self, req, fp, code, msg, headers, newurl
+    ) -> urllib.request.Request | None:
+        if len(self.history) >= _MAX_REDIRECTS:
+            raise urllib.error.URLError(
+                f"Too many redirects (>{_MAX_REDIRECTS})"
+            )
+        self.history.append((code, newurl))
+        return urllib.request.Request(newurl)
+
+
+def _fetch_local_direct(
+    domain: str, verify_ssl: bool, timeout_seconds: int
+) -> _FetchResult:
+    """Fetch a domain using stdlib urllib, tracking redirects.
+
+    Args:
+        domain: Normalized domain name (no scheme).
+        verify_ssl: Whether to verify SSL certificates.
+        timeout_seconds: Connection timeout in seconds.
+
+    Returns:
+        :class:`_FetchResult` with HTML content.
+
+    Raises:
+        urllib.error.URLError: On DNS, connection, or SSL errors.
+        socket.timeout: On connection timeout.
+    """
+    url = f"https://{domain}"
+    tracker = _RedirectTracker()
+
+    if not verify_ssl:
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        https_handler = urllib.request.HTTPSHandler(context=ctx)
+        opener = urllib.request.build_opener(tracker, https_handler)
+    else:
+        opener = urllib.request.build_opener(tracker)
+
+    req = urllib.request.Request(url)
+
+    with opener.open(req, timeout=timeout_seconds) as resp:
+        content = resp.read().decode("utf-8", errors="replace")
+        final_url = resp.url
+
+    chain = [url] + [u for _, u in tracker.history]
+    first_status = tracker.history[0][0] if tracker.history else 200
+    redirects = urlparse(url).netloc != urlparse(final_url).netloc
+
+    return _FetchResult(
+        final_url=final_url,
+        status_code=first_status,
+        redirect_chain=chain,
+        content=content,
+        redirects=redirects,
+    )
 
 
 def _normalize_domain(domain: str) -> str:

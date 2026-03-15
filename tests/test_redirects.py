@@ -85,3 +85,34 @@ def test_normalize_domain_rejects_whitespace_in_middle():
         pass
     else:
         raise AssertionError("Expected ValueError for domain with whitespace")
+
+
+def test_fetch_local_direct_no_redirect(monkeypatch):
+    """Domain that returns 200 with no redirect."""
+    from common_functions.redirects import _fetch_local_direct, _FetchResult
+    import urllib.request
+
+    class _FakeResponse:
+        status = 200
+        url = "https://example.com"
+
+        def read(self):
+            return b"<html>Example</html>"
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+    monkeypatch.setattr(
+        urllib.request.OpenerDirector, "open", lambda self, *a, **kw: _FakeResponse()
+    )
+
+    result = _fetch_local_direct("example.com", verify_ssl=True, timeout_seconds=20)
+    assert isinstance(result, _FetchResult)
+    assert result.redirects is False
+    assert result.final_url == "https://example.com"
+    assert result.status_code == 200
+    assert result.redirect_chain == ["https://example.com"]
+    assert result.content == "<html>Example</html>"
