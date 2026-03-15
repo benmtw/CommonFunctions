@@ -373,3 +373,147 @@ def test_verify_org_content_with_postcode(monkeypatch):
 
     system_msg = captured_kwargs["messages"][0]["content"]
     assert "NW3 5QE" in system_msg
+
+
+def test_check_redirect_local_direct_no_redirect(monkeypatch):
+    from common_functions.redirects import check_redirect, _FetchResult
+
+    monkeypatch.setattr(
+        "common_functions.redirects._fetch_local_direct",
+        lambda domain, verify_ssl, timeout_seconds: _FetchResult(
+            final_url="https://example.com",
+            status_code=200,
+            redirect_chain=["https://example.com"],
+            content="<html>OK</html>",
+            redirects=False,
+        ),
+    )
+
+    result = check_redirect(domain="example.com")
+    assert result["domain"] == "example.com"
+    assert result["redirects"] is False
+    assert result["final_domain"] == "example.com"
+    assert result["status_code"] == 200
+    assert result["strategy"] == "local_direct"
+    assert result["content"] == "<html>OK</html>"
+    assert result["verified"] is None
+    assert result["verification_reason"] is None
+
+
+def test_check_redirect_remote_headless_with_redirect(monkeypatch):
+    from common_functions.redirects import check_redirect, _FetchResult, ScrapeDoConfig
+
+    monkeypatch.setattr(
+        "common_functions.redirects._fetch_remote",
+        lambda domain, config, render: _FetchResult(
+            final_url="https://newdomain.com",
+            status_code=301,
+            redirect_chain=["https://olddomain.com", "https://newdomain.com"],
+            content="# New Domain",
+            redirects=True,
+        ),
+    )
+
+    config = ScrapeDoConfig(api_token="tok123")
+    result = check_redirect(
+        domain="olddomain.com",
+        strategy="remote_headless",
+        scrape_do_config=config,
+    )
+    assert result["redirects"] is True
+    assert result["final_domain"] == "newdomain.com"
+    assert result["status_code"] == 301
+    assert result["strategy"] == "remote_headless"
+
+
+def test_check_redirect_with_verification(monkeypatch):
+    from common_functions.redirects import check_redirect, _FetchResult, LlmVerifierConfig
+
+    monkeypatch.setattr(
+        "common_functions.redirects._fetch_local_direct",
+        lambda domain, verify_ssl, timeout_seconds: _FetchResult(
+            final_url="https://school.org",
+            status_code=200,
+            redirect_chain=["https://school.org"],
+            content="# School Page",
+            redirects=False,
+        ),
+    )
+    monkeypatch.setattr(
+        "common_functions.redirects._verify_org_content",
+        lambda content, org_info, config: (True, "Content matches school"),
+    )
+
+    config = LlmVerifierConfig(api_key="key123")
+    result = check_redirect(
+        domain="school.org",
+        verify_org={"name": "Test School", "context": "UK school"},
+        llm_config=config,
+    )
+    assert result["verified"] is True
+    assert result["verification_reason"] == "Content matches school"
+
+
+def test_check_redirect_auto_init_scrape_do_config(monkeypatch):
+    monkeypatch.setenv("SCRAPE_DO_API_TOKEN", "tok123")
+    from common_functions.redirects import check_redirect, _FetchResult
+
+    monkeypatch.setattr(
+        "common_functions.redirects._fetch_remote",
+        lambda domain, config, render: _FetchResult(
+            final_url="https://example.com",
+            status_code=200,
+            redirect_chain=["https://example.com"],
+            content="OK",
+            redirects=False,
+        ),
+    )
+
+    result = check_redirect(domain="example.com", strategy="remote_direct")
+    assert result["strategy"] == "remote_direct"
+
+
+def test_check_redirect_missing_scrape_do_config(monkeypatch):
+    monkeypatch.delenv("SCRAPE_DO_API_TOKEN", raising=False)
+    from common_functions.redirects import check_redirect
+
+    try:
+        check_redirect(domain="example.com", strategy="remote_direct")
+    except ValueError as exc:
+        assert "SCRAPE_DO_API_TOKEN" in str(exc)
+    else:
+        raise AssertionError("Expected ValueError")
+
+
+def test_check_redirect_unsupported_strategy():
+    from common_functions.redirects import check_redirect
+
+    try:
+        check_redirect(domain="example.com", strategy="magic")  # type: ignore[arg-type]
+    except ValueError as exc:
+        assert "Unsupported" in str(exc)
+    else:
+        raise AssertionError("Expected ValueError")
+
+
+def test_check_redirect_normalizes_domain(monkeypatch):
+    from common_functions.redirects import check_redirect, _FetchResult
+
+    captured_domain = []
+
+    def fake_fetch(domain, verify_ssl, timeout_seconds):
+        captured_domain.append(domain)
+        return _FetchResult(
+            final_url=f"https://{domain}",
+            status_code=200,
+            redirect_chain=[f"https://{domain}"],
+            content="OK",
+            redirects=False,
+        )
+
+    monkeypatch.setattr(
+        "common_functions.redirects._fetch_local_direct", fake_fetch
+    )
+
+    check_redirect(domain="  Example.COM  ")
+    assert captured_domain[0] == "example.com"

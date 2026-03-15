@@ -359,3 +359,80 @@ def _verify_org_content(
         return bool(data["verified"]), str(data["reason"])
     except (json.JSONDecodeError, KeyError, TypeError):
         return False, "LLM response could not be parsed"
+
+
+def check_redirect(
+    *,
+    domain: str,
+    strategy: RedirectStrategy = "local_direct",
+    scrape_do_config: ScrapeDoConfig | None = None,
+    verify_org: OrgInfo | None = None,
+    llm_config: LlmVerifierConfig | None = None,
+    verify_ssl: bool = True,
+    timeout_seconds: int = 20,
+) -> dict[str, Any]:
+    """Check whether a domain redirects to another domain.
+
+    Fetches the domain using the specified strategy and optionally verifies
+    that the page content belongs to a given organisation using an LLM.
+
+    Args:
+        domain: The domain to check (e.g. ``"www.example.com"``).
+        strategy: Fetch strategy — ``"local_direct"``, ``"remote_direct"``,
+            or ``"remote_headless"``.
+        scrape_do_config: Configuration for Scrape.do API. Auto-initialized
+            from env vars if omitted for a remote strategy.
+        verify_org: Optional organisation metadata for LLM content
+            verification. Pass ``None`` to skip verification.
+        llm_config: Configuration for the LLM verifier. Auto-initialized
+            from env vars if omitted when ``verify_org`` is provided.
+        verify_ssl: Whether to verify SSL certificates (``local_direct`` only).
+        timeout_seconds: Connection timeout in seconds (``local_direct`` only).
+            Remote strategies use ``ScrapeDoConfig.timeout_seconds``.
+
+    Returns:
+        Dict with keys: ``domain``, ``redirects``, ``final_domain``,
+        ``redirect_chain``, ``status_code``, ``strategy``, ``content``,
+        ``verified``, ``verification_reason``.
+
+    Raises:
+        ValueError: If required config is missing or strategy is unsupported.
+        ImportError: If ``verify_org`` is provided but ``openai`` is not installed.
+        urllib.error.URLError: On network errors (``local_direct``).
+        http.client.HTTPException: On network errors (remote strategies).
+        socket.timeout: On connection timeout.
+    """
+    domain = _normalize_domain(domain)
+
+    if strategy == "local_direct":
+        result = _fetch_local_direct(domain, verify_ssl, timeout_seconds)
+    elif strategy in ("remote_direct", "remote_headless"):
+        if scrape_do_config is None:
+            scrape_do_config = ScrapeDoConfig.from_env()
+        render = strategy == "remote_headless"
+        result = _fetch_remote(domain, scrape_do_config, render)
+    else:
+        raise ValueError(f"Unsupported redirect strategy: {strategy!r}")
+
+    final_domain = urlparse(result.final_url).netloc
+
+    verified = None
+    verification_reason = None
+    if verify_org is not None:
+        if llm_config is None:
+            llm_config = LlmVerifierConfig.from_env()
+        verified, verification_reason = _verify_org_content(
+            result.content, verify_org, llm_config
+        )
+
+    return {
+        "domain": domain,
+        "redirects": result.redirects,
+        "final_domain": final_domain,
+        "redirect_chain": result.redirect_chain,
+        "status_code": result.status_code,
+        "strategy": strategy,
+        "content": result.content,
+        "verified": verified,
+        "verification_reason": verification_reason,
+    }
