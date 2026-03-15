@@ -116,3 +116,27 @@ def test_fetch_local_direct_no_redirect(monkeypatch):
     assert result.status_code == 200
     assert result.redirect_chain == ["https://example.com"]
     assert result.content == "<html>Example</html>"
+
+
+def test_redirect_tracker_loop():
+    """More than 10 redirects raises URLError."""
+    from common_functions.redirects import _RedirectTracker, _MAX_REDIRECTS
+    import urllib.request
+    import urllib.error
+
+    tracker = _RedirectTracker()
+    req = urllib.request.Request("https://loop.com")
+
+    for i in range(_MAX_REDIRECTS):
+        tracker.redirect_request(
+            req, None, 301, "Moved", {}, f"https://loop.com/{i}"
+        )
+    # The 11th should raise
+    try:
+        tracker.redirect_request(
+            req, None, 301, "Moved", {}, "https://loop.com/11"
+        )
+    except urllib.error.URLError as exc:
+        assert "Too many redirects" in str(exc)
+    else:
+        raise AssertionError("Expected URLError for redirect loop")
