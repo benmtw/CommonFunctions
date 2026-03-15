@@ -165,16 +165,49 @@ For `source="ratings"`, you can either:
   - `CF_D1_DATABASE_ID`
   - `CF_API_TOKEN`
 
-### Domain Redirect Detection
+### Domain Redirect Detection & Content Verification
 
-Check whether a domain redirects to another domain using configurable strategies:
+Two public functions for redirect detection and organisation verification:
+
+| Function | Purpose |
+|---|---|
+| `check_redirect(...)` | Fetch a domain, detect redirects, and optionally verify the page belongs to a given organisation |
+| `verify_domain_belongs_to_org(...)` | Verify page content belongs to an organisation **without** fetching — useful when you already have HTML/markdown from a crawl pipeline or cached fetch |
+
+---
+
+#### `check_redirect`
+
+Fetches a domain using configurable strategies and reports whether it redirects elsewhere. Optionally runs LLM-based organisation verification on the fetched content.
+
+**Basic usage:**
 
 ```python
 from common_functions import check_redirect
 
 # Local direct (stdlib urllib, fast and free)
-result = check_redirect(domain="olddomain.com")
+result = check_redirect(domain="www.sns.hackney.sch.uk")
+```
 
+Schemes are stripped automatically, so `"https://www.sns.hackney.sch.uk/"` also works.
+
+**Example result:**
+
+| Field | Value |
+|---|---|
+| `domain` | `www.sns.hackney.sch.uk` |
+| `redirects` | `True` |
+| `final_domain` | `www.stokenewingtonschool.co.uk` |
+| `redirect_chain` | `['https://www.sns.hackney.sch.uk', 'https://www.stokenewingtonschool.co.uk/']` |
+| `status_code` | `301` |
+| `strategy` | `local_direct` |
+| `content` | *(38,710 chars of HTML)* |
+| `verified` | `None` |
+| `verification_reason` | `None` |
+
+**More examples:**
+
+```python
 # Remote without JS rendering (fast, low cost)
 result = check_redirect(domain="olddomain.com", strategy="remote_direct")
 
@@ -187,31 +220,118 @@ result = check_redirect(
     strategy=["local_direct", "remote_headless"],
 )
 
-# With organisation verification via LLM
+# With organisation verification via LLM (auto-configured from env vars)
 result = check_redirect(
-    domain="www.fitzjohns.camden.sch.uk",
-    strategy=["local_direct", "remote_headless"],
-    verify_org={"name": "Fitzjohn's Primary School", "context": "UK school"},
+    domain="www.sns.hackney.sch.uk",
+    verify_org={
+        "name": "Stoke Newington School and Sixth Form",
+        "context": "UK secondary school and sixth form in Hackney, London",
+    },
+)
+
+# With explicit LLM config (custom model/provider)
+from common_functions import LlmVerifierConfig
+result = check_redirect(
+    domain="www.sns.hackney.sch.uk",
+    verify_org={
+        "name": "Stoke Newington School and Sixth Form",
+        "context": "UK secondary school and sixth form in Hackney, London",
+    },
+    llm_config=LlmVerifierConfig(
+        api_key="sk-xxx",
+        base_url="https://api.openai.com/v1",
+        model="gpt-4o-mini",
+    ),
 )
 ```
 
-**Strategies** (pass one or a list for fallback):
-- `local_direct` — stdlib `urllib`, follows redirects (default)
-- `remote_direct` — Scrape.do **without** JS rendering
-- `remote_headless` — Scrape.do **with** headless browser rendering
+---
+
+#### `verify_domain_belongs_to_org`
+
+Verifies whether page content belongs to a specific organisation using the DSPy-powered LLM verifier. Does **not** fetch any URL — you supply the content directly. This is useful when you already have the HTML/markdown from another source (e.g. a crawl pipeline, cached fetch, or a prior `check_redirect` call).
+
+**Basic usage:**
+
+```python
+from common_functions import check_redirect, verify_domain_belongs_to_org
+
+# Fetch content separately (or use content you already have)
+page = check_redirect(domain="www.stokenewingtonschool.co.uk")
+
+# Verify against the correct owner
+result = verify_domain_belongs_to_org(
+    content=page["content"],
+    org_info={
+        "name": "Stoke Newington School and Sixth Form",
+        "context": "UK secondary school and sixth form in Hackney, London",
+    },
+)
+```
+
+Returns a dict with two keys: `verified` (bool) and `reason` (str).
+
+**Live example — correct vs incorrect owner:**
+
+| Test | `org_info["name"]` | `verified` | `reason` |
+|---|---|---|---|
+| Correct owner | Stoke Newington School and Sixth Form | `True` | Title, URL, and theme path all confirm it belongs to the organisation |
+| Wrong owner | All Saints Catholic High School | `False` | Page clearly identifies as Stoke Newington School, no mention of All Saints |
+
+**With explicit LLM config:**
+
+```python
+from common_functions import LlmVerifierConfig, verify_domain_belongs_to_org
+
+result = verify_domain_belongs_to_org(
+    content="<html><title>Stoke Newington School</title>...</html>",
+    org_info={
+        "name": "Stoke Newington School and Sixth Form",
+        "postcode": "N16 6BE",
+        "context": "UK secondary school and sixth form in Hackney, London",
+    },
+    llm_config=LlmVerifierConfig(
+        api_key="sk-xxx",
+        base_url="https://api.openai.com/v1",
+        model="gpt-4o-mini",
+    ),
+)
+```
+
+Omit `llm_config` to auto-configure from environment variables (see below).
+
+---
+
+#### Strategies
+
+Pass one strategy or a list for automatic fallback:
+
+| Strategy | How it works | Cost |
+|---|---|---|
+| `local_direct` | stdlib `urllib`, follows redirects | Free |
+| `remote_direct` | Scrape.do **without** JS rendering | Low |
+| `remote_headless` | Scrape.do **with** headless browser rendering | Higher |
 
 SSL verification is disabled by default (`verify_ssl=False`).
 When a list of strategies is provided, each is tried in order;
 network/timeout errors trigger fallback to the next strategy.
 
-**Environment variables (remote strategies):**
-- `SCRAPE_DO_API_KEY` — Scrape.do API token
-- `SCRAPE_DO_GEO_CODE` — proxy country (default `gb`)
+#### Environment variables
 
-**Environment variables (LLM verification):**
-- `XIAOMI_API_KEY` — Xiaomi MiMo API key
-- `XIAOMI_BASE_URL` — API base URL (default `https://api.xiaomimimo.com/v1`)
-- `XIAOMI_MODEL` — model name (default `mimo-v2-flash`)
+**Remote strategies (Scrape.do):**
+
+| Variable | Required | Default |
+|---|---|---|
+| `SCRAPE_DO_API_KEY` | Yes (for remote) | — |
+| `SCRAPE_DO_GEO_CODE` | No | `gb` |
+
+**LLM verification (Xiaomi MiMo):**
+
+| Variable | Required | Default |
+|---|---|---|
+| `XIAOMI_API_KEY` | Yes (for verification) | — |
+| `XIAOMI_BASE_URL` | No | `https://api.xiaomimimo.com/v1` |
+| `XIAOMI_MODEL` | No | `mimo-v2-flash` |
 
 **Optional dependency:** `pip install common-functions[redirects]` for DSPy-powered LLM verification support.
 

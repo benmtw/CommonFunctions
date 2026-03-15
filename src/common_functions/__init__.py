@@ -27,6 +27,7 @@ from .redirects import (
     LlmVerifierConfig,
     OrgInfo,
     ScrapeDoConfig,
+    verify_domain_belongs_to_org,
 )
 
 __all__ = [
@@ -52,4 +53,5 @@ __all__ = [
     "ScrapeDoConfig",
     "LlmVerifierConfig",
     "OrgInfo",
+    "verify_domain_belongs_to_org",
 ]

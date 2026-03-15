@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- (2026-03-15) `verify_domain_belongs_to_org(...)` — standalone LLM-based content verification without requiring a redirect check. Useful when page content is already available from another source.
 - `pdoc` API documentation automation:
   - `scripts/generate_api_docs.py`
   - `.pre-commit-config.yaml` hook to regenerate docs on commit

@@ -67,6 +67,13 @@ def test_normalize_domain_strips_and_lowercases():
     assert _normalize_domain("  Example.COM  ") == "example.com"
 
 
+def test_normalize_domain_strips_scheme():
+    from common_functions.redirects import _normalize_domain
+    assert _normalize_domain("https://Example.COM") == "example.com"
+    assert _normalize_domain("http://Example.COM/") == "example.com"
+    assert _normalize_domain("HTTPS://FOO.BAR/") == "foo.bar"
+
+
 def test_normalize_domain_rejects_empty():
     from common_functions.redirects import _normalize_domain
     try:
@@ -570,5 +577,59 @@ def test_check_redirect_empty_strategy_list():
         check_redirect(domain="example.com", strategy=[])
     except ValueError as exc:
         assert "At least one" in str(exc)
+    else:
+        raise AssertionError("Expected ValueError")
+
+
+def test_verify_domain_belongs_to_org_verified(monkeypatch):
+    """Returns dict with verified=True when content matches."""
+    from common_functions.redirects import verify_domain_belongs_to_org, LlmVerifierConfig
+
+    monkeypatch.setattr(
+        "common_functions.redirects._verify_org_content",
+        lambda content, org_info, config: (True, "Content matches the school"),
+    )
+
+    config = LlmVerifierConfig(api_key="key123")
+    result = verify_domain_belongs_to_org(
+        content="# Test School\nWelcome",
+        org_info={"name": "Test School", "context": "UK school"},
+        llm_config=config,
+    )
+    assert result == {"verified": True, "reason": "Content matches the school"}
+
+
+def test_verify_domain_belongs_to_org_auto_init_config(monkeypatch):
+    """Omitting llm_config auto-initialises from env vars."""
+    monkeypatch.setenv("XIAOMI_API_KEY", "key123")
+    monkeypatch.delenv("XIAOMI_BASE_URL", raising=False)
+    monkeypatch.delenv("XIAOMI_MODEL", raising=False)
+    from common_functions.redirects import verify_domain_belongs_to_org
+
+    monkeypatch.setattr(
+        "common_functions.redirects._verify_org_content",
+        lambda content, org_info, config: (False, "Parking page"),
+    )
+
+    result = verify_domain_belongs_to_org(
+        content="Buy domains cheap!",
+        org_info={"name": "Test School", "context": "UK school"},
+    )
+    assert result["verified"] is False
+    assert result["reason"] == "Parking page"
+
+
+def test_verify_domain_belongs_to_org_missing_config(monkeypatch):
+    """No env vars and no config raises ValueError."""
+    monkeypatch.delenv("XIAOMI_API_KEY", raising=False)
+    from common_functions.redirects import verify_domain_belongs_to_org
+
+    try:
+        verify_domain_belongs_to_org(
+            content="anything",
+            org_info={"name": "Test", "context": "test"},
+        )
+    except ValueError as exc:
+        assert "XIAOMI_API_KEY" in str(exc)
     else:
         raise AssertionError("Expected ValueError")

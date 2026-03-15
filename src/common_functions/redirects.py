@@ -216,6 +216,11 @@ def _normalize_domain(domain: str) -> str:
         ValueError: If domain is empty or contains whitespace.
     """
     domain = domain.strip().lower()
+    for prefix in ("https://", "http://"):
+        if domain.startswith(prefix):
+            domain = domain[len(prefix):]
+            break
+    domain = domain.rstrip("/")
     if not domain:
         raise ValueError("Domain must not be empty.")
     if any(c.isspace() for c in domain):
@@ -375,6 +380,78 @@ def _verify_org_content(
         result = predictor(page_content=truncated_content)
 
     return bool(result.verified), str(result.reason)
+
+
+def verify_domain_belongs_to_org(
+    *,
+    content: str,
+    org_info: OrgInfo,
+    llm_config: LlmVerifierConfig | None = None,
+) -> dict[str, Any]:
+    """Verify whether page content belongs to a specific organisation.
+
+    Delegates to the internal DSPy-powered verifier without requiring a
+    redirect check.  Useful when you already have the HTML/markdown from
+    another source (e.g. a crawl pipeline or cached fetch).
+
+    Examples:
+        **Minimal — env-var config** (requires ``XIAOMI_API_KEY``):
+
+        >>> result = verify_domain_belongs_to_org(
+        ...     content="<html><title>Fitzjohn's Primary</title></html>",
+        ...     org_info={
+        ...         "name": "Fitzjohn's Primary School",
+        ...         "context": "UK primary school in Camden, London",
+        ...     },
+        ... )
+        >>> result["verified"]
+        True
+
+        **With explicit** :class:`LlmVerifierConfig`:
+
+        >>> from common_functions import LlmVerifierConfig
+        >>> result = verify_domain_belongs_to_org(
+        ...     content="# School Page",
+        ...     org_info={
+        ...         "name": "Fitzjohn's Primary School",
+        ...         "context": "UK primary school in Camden, London",
+        ...     },
+        ...     llm_config=LlmVerifierConfig(
+        ...         api_key="sk-xxx",
+        ...         base_url="https://api.openai.com/v1",
+        ...         model="gpt-4o-mini",
+        ...     ),
+        ... )
+
+        **With postcode in** ``org_info``:
+
+        >>> result = verify_domain_belongs_to_org(
+        ...     content="# School Page",
+        ...     org_info={
+        ...         "name": "Fitzjohn's Primary School",
+        ...         "postcode": "NW3 5QE",
+        ...         "context": "UK primary school in Camden, London",
+        ...     },
+        ... )
+
+    Args:
+        content: Page content (HTML or markdown).
+        org_info: Organisation metadata for verification.
+        llm_config: LLM verifier configuration.  Auto-initialized from
+            environment variables when ``None``.
+
+    Returns:
+        Dict with keys ``verified`` (bool) and ``reason`` (str).
+
+    Raises:
+        ValueError: If ``llm_config`` is ``None`` and required env vars
+            are missing.
+        ImportError: If ``dspy`` is not installed.
+    """
+    if llm_config is None:
+        llm_config = LlmVerifierConfig.from_env()
+    verified, reason = _verify_org_content(content, org_info, llm_config)
+    return {"verified": verified, "reason": reason}
 
 
 _log = logging.getLogger(__name__)
