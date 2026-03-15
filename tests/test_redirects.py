@@ -270,3 +270,106 @@ def test_fetch_remote_scrape_do_api_error(monkeypatch):
     result = _fetch_remote("failing.com", config, render=False)
     assert result.status_code == 200  # default when header missing
     assert result.content == '{"error": "internal error"}'
+
+
+def _make_fake_openai_client(response_text, capture_kwargs=None):
+    """Factory for fake OpenAI client that returns canned responses."""
+
+    class _FakeMessage:
+        content = response_text
+
+    class _FakeChoice:
+        message = _FakeMessage()
+
+    class _FakeCompletion:
+        choices = [_FakeChoice()]
+
+    class _FakeCompletions:
+        def create(self, **kwargs):
+            if capture_kwargs is not None:
+                capture_kwargs.update(kwargs)
+            return _FakeCompletion()
+
+    class _FakeChat:
+        completions = _FakeCompletions()
+
+    class _FakeClient:
+        chat = _FakeChat()
+
+        def __init__(self, **kwargs):
+            pass
+
+    return _FakeClient
+
+
+def test_verify_org_content_verified(monkeypatch):
+    """LLM returns verified=true."""
+    from common_functions.redirects import _verify_org_content, LlmVerifierConfig
+
+    monkeypatch.setattr(
+        "common_functions.redirects._make_openai_client",
+        _make_fake_openai_client('{"verified": true, "reason": "Page matches the school"}'),
+    )
+
+    config = LlmVerifierConfig(api_key="key123")
+    org_info = {"name": "Test School", "context": "UK school"}
+
+    verified, reason = _verify_org_content("# Test School\nWelcome", org_info, config)
+    assert verified is True
+    assert "school" in reason.lower()
+
+
+def test_verify_org_content_not_verified(monkeypatch):
+    """LLM returns verified=false."""
+    from common_functions.redirects import _verify_org_content, LlmVerifierConfig
+
+    monkeypatch.setattr(
+        "common_functions.redirects._make_openai_client",
+        _make_fake_openai_client('{"verified": false, "reason": "Page is a parking page"}'),
+    )
+
+    config = LlmVerifierConfig(api_key="key123")
+    org_info = {"name": "Test School", "context": "UK school"}
+
+    verified, reason = _verify_org_content("Buy domains cheap!", org_info, config)
+    assert verified is False
+    assert "parking" in reason.lower()
+
+
+def test_verify_org_content_malformed_response(monkeypatch):
+    """LLM returns unparseable response."""
+    from common_functions.redirects import _verify_org_content, LlmVerifierConfig
+
+    monkeypatch.setattr(
+        "common_functions.redirects._make_openai_client",
+        _make_fake_openai_client("I cannot determine this."),
+    )
+
+    config = LlmVerifierConfig(api_key="key123")
+    org_info = {"name": "Test School", "context": "UK school"}
+
+    verified, reason = _verify_org_content("Some content", org_info, config)
+    assert verified is False
+    assert "could not be parsed" in reason.lower()
+
+
+def test_verify_org_content_with_postcode(monkeypatch):
+    """Postcode is included in prompt when provided."""
+    from common_functions.redirects import _verify_org_content, LlmVerifierConfig
+
+    captured_kwargs = {}
+    monkeypatch.setattr(
+        "common_functions.redirects._make_openai_client",
+        _make_fake_openai_client(
+            '{"verified": true, "reason": "Matches"}',
+            capture_kwargs=captured_kwargs,
+        ),
+    )
+
+    config = LlmVerifierConfig(api_key="key123")
+    org_info = {"name": "Test School", "postcode": "NW3 5QE", "context": "UK school"}
+
+    _verify_org_content("Content", org_info, config)
+
+    system_msg = captured_kwargs["messages"][0]["content"]
+    assert "NW3 5QE" in system_msg

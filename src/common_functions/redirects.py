@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import http.client
+import json
 import os
 import ssl
 import urllib.request
@@ -280,3 +281,81 @@ def _fetch_remote(
         content=body,
         redirects=redirects,
     )
+
+
+_VERIFY_SYSTEM_PROMPT = """You are verifying whether a webpage belongs to a specific organisation.
+
+Organisation: {name}
+{postcode_line}Context: {context}
+
+Analyse the page content below and determine if this page belongs to the organisation described above.
+
+Respond with JSON only: {{"verified": true/false, "reason": "brief explanation"}}"""
+
+
+def _make_openai_client(api_key: str, base_url: str):
+    """Create an OpenAI client (lazy import).
+
+    Args:
+        api_key: API key for the LLM service.
+        base_url: Base URL for the OpenAI-compatible API.
+
+    Returns:
+        An ``openai.OpenAI`` client instance.
+
+    Raises:
+        ImportError: If the ``openai`` package is not installed.
+    """
+    try:
+        from openai import OpenAI
+    except ImportError:
+        raise ImportError(
+            "The 'openai' package is required for organisation verification. "
+            "Install it with: pip install common-functions[redirects]"
+        )
+    return OpenAI(api_key=api_key, base_url=base_url)
+
+
+def _verify_org_content(
+    content: str, org_info: OrgInfo, config: LlmVerifierConfig
+) -> tuple[bool, str]:
+    """Verify page content belongs to the expected organisation via LLM.
+
+    Args:
+        content: Page content (HTML or markdown).
+        org_info: Organisation metadata for verification.
+        config: LLM API configuration.
+
+    Returns:
+        Tuple of (verified, reason). If the LLM response cannot be parsed,
+        returns ``(False, "LLM response could not be parsed")``.
+    """
+    postcode = org_info.get("postcode", "")
+    postcode_line = f"Postcode: {postcode}\n" if postcode else ""
+
+    system_prompt = _VERIFY_SYSTEM_PROMPT.format(
+        name=org_info["name"],
+        postcode_line=postcode_line,
+        context=org_info["context"],
+    )
+
+    truncated_content = content[:4000]
+
+    client = _make_openai_client(api_key=config.api_key, base_url=config.base_url)
+    completion = client.chat.completions.create(
+        model=config.model,
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": truncated_content},
+        ],
+        temperature=0.1,
+        max_completion_tokens=256,
+        response_format={"type": "json_object"},
+    )
+
+    raw = completion.choices[0].message.content
+    try:
+        data = json.loads(raw)
+        return bool(data["verified"]), str(data["reason"])
+    except (json.JSONDecodeError, KeyError, TypeError):
+        return False, "LLM response could not be parsed"
