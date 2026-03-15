@@ -27,10 +27,12 @@ All notable changes to this project will be documented in this file.
 - Domain redirect detection module:
   - `src/common_functions/redirects.py`
   - `check_redirect(...)` with strategies: `local_direct`, `remote_direct`, `remote_headless`
-  - Optional LLM-based organisation verification via OpenAI-compatible API
+  - Optional LLM-based organisation verification via DSPy (typed signatures, prompt-optimisation ready)
   - `ScrapeDoConfig`, `LlmVerifierConfig`, `OrgInfo` config types
 
 ### Changed
+- (2026-03-15) Replaced raw OpenAI client in `redirects.py` LLM verifier with DSPy (`dspy.Predict` + typed `dspy.Signature`), enabling prompt optimisation and standardised outputs. Optional dependency changed from `openai` to `dspy>=2.6.0`.
+- (2026-03-15) `check_redirect` now accepts a list of strategies for automatic fallback (e.g. `["local_direct", "remote_headless"]`). `verify_ssl` defaults to `False`.
 - Updated developer dependencies to include `pdoc` and `pre-commit`.
 - Updated README with API docs generation and auto-update workflow.
 - Updated README with D1 import and lookup commands for disposable-domain dataset.

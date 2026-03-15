@@ -272,44 +272,39 @@ def test_fetch_remote_scrape_do_api_error(monkeypatch):
     assert result.content == '{"error": "internal error"}'
 
 
-def _make_fake_openai_client(response_text, capture_kwargs=None):
-    """Factory for fake OpenAI client that returns canned responses."""
+def _make_fake_dspy_predict(verified_val, reason_val):
+    """Factory for a fake DSPy Predict that returns canned results."""
 
-    class _FakeMessage:
-        content = response_text
+    class _FakeResult:
+        def __init__(self):
+            self.verified = verified_val
+            self.reason = reason_val
 
-    class _FakeChoice:
-        message = _FakeMessage()
+    class _FakePredict:
+        def __init__(self, signature):
+            self.signature = signature
 
-    class _FakeCompletion:
-        choices = [_FakeChoice()]
+        def __call__(self, **kwargs):
+            return _FakeResult()
 
-    class _FakeCompletions:
-        def create(self, **kwargs):
-            if capture_kwargs is not None:
-                capture_kwargs.update(kwargs)
-            return _FakeCompletion()
-
-    class _FakeChat:
-        completions = _FakeCompletions()
-
-    class _FakeClient:
-        chat = _FakeChat()
-
-        def __init__(self, **kwargs):
-            pass
-
-    return _FakeClient
+    return _FakePredict
 
 
 def test_verify_org_content_verified(monkeypatch):
-    """LLM returns verified=true."""
+    """DSPy returns verified=True."""
     from common_functions.redirects import _verify_org_content, LlmVerifierConfig
+    import types
 
-    monkeypatch.setattr(
-        "common_functions.redirects._make_openai_client",
-        _make_fake_openai_client('{"verified": true, "reason": "Page matches the school"}'),
-    )
+    fake_dspy = types.ModuleType("dspy")
+    fake_dspy.LM = lambda *a, **kw: None
+    fake_dspy.Predict = _make_fake_dspy_predict(True, "Page matches the school")
+    fake_dspy.context = lambda **kw: type("ctx", (), {"__enter__": lambda s: s, "__exit__": lambda s, *a: None})()
+    # Provide InputField/OutputField/Signature stubs for _build_org_verification_signature
+    fake_dspy.InputField = lambda **kw: None
+    fake_dspy.OutputField = lambda **kw: None
+    fake_dspy.Signature = type("Signature", (), {})
+
+    monkeypatch.setattr("common_functions.redirects._get_dspy", lambda: fake_dspy)
 
     config = LlmVerifierConfig(api_key="key123")
     org_info = {"name": "Test School", "context": "UK school"}
@@ -320,13 +315,19 @@ def test_verify_org_content_verified(monkeypatch):
 
 
 def test_verify_org_content_not_verified(monkeypatch):
-    """LLM returns verified=false."""
+    """DSPy returns verified=False."""
     from common_functions.redirects import _verify_org_content, LlmVerifierConfig
+    import types
 
-    monkeypatch.setattr(
-        "common_functions.redirects._make_openai_client",
-        _make_fake_openai_client('{"verified": false, "reason": "Page is a parking page"}'),
-    )
+    fake_dspy = types.ModuleType("dspy")
+    fake_dspy.LM = lambda *a, **kw: None
+    fake_dspy.Predict = _make_fake_dspy_predict(False, "Page is a parking page")
+    fake_dspy.context = lambda **kw: type("ctx", (), {"__enter__": lambda s: s, "__exit__": lambda s, *a: None})()
+    fake_dspy.InputField = lambda **kw: None
+    fake_dspy.OutputField = lambda **kw: None
+    fake_dspy.Signature = type("Signature", (), {})
+
+    monkeypatch.setattr("common_functions.redirects._get_dspy", lambda: fake_dspy)
 
     config = LlmVerifierConfig(api_key="key123")
     org_info = {"name": "Test School", "context": "UK school"}
@@ -336,43 +337,21 @@ def test_verify_org_content_not_verified(monkeypatch):
     assert "parking" in reason.lower()
 
 
-def test_verify_org_content_malformed_response(monkeypatch):
-    """LLM returns unparseable response."""
-    from common_functions.redirects import _verify_org_content, LlmVerifierConfig
-
-    monkeypatch.setattr(
-        "common_functions.redirects._make_openai_client",
-        _make_fake_openai_client("I cannot determine this."),
-    )
-
-    config = LlmVerifierConfig(api_key="key123")
-    org_info = {"name": "Test School", "context": "UK school"}
-
-    verified, reason = _verify_org_content("Some content", org_info, config)
-    assert verified is False
-    assert "could not be parsed" in reason.lower()
-
-
 def test_verify_org_content_with_postcode(monkeypatch):
-    """Postcode is included in prompt when provided."""
-    from common_functions.redirects import _verify_org_content, LlmVerifierConfig
+    """Postcode is included in DSPy signature instructions when provided."""
+    from common_functions.redirects import _build_org_verification_signature
+    import types
 
-    captured_kwargs = {}
-    monkeypatch.setattr(
-        "common_functions.redirects._make_openai_client",
-        _make_fake_openai_client(
-            '{"verified": true, "reason": "Matches"}',
-            capture_kwargs=captured_kwargs,
-        ),
-    )
+    fake_dspy = types.ModuleType("dspy")
+    fake_dspy.InputField = lambda **kw: None
+    fake_dspy.OutputField = lambda **kw: None
+    fake_dspy.Signature = type("Signature", (), {})
 
-    config = LlmVerifierConfig(api_key="key123")
+    monkeypatch.setattr("common_functions.redirects._get_dspy", lambda: fake_dspy)
+
     org_info = {"name": "Test School", "postcode": "NW3 5QE", "context": "UK school"}
-
-    _verify_org_content("Content", org_info, config)
-
-    system_msg = captured_kwargs["messages"][0]["content"]
-    assert "NW3 5QE" in system_msg
+    sig = _build_org_verification_signature(org_info)
+    assert "NW3 5QE" in sig.__doc__
 
 
 def test_check_redirect_local_direct_no_redirect(monkeypatch):
@@ -517,3 +496,79 @@ def test_check_redirect_normalizes_domain(monkeypatch):
 
     check_redirect(domain="  Example.COM  ")
     assert captured_domain[0] == "example.com"
+
+
+def test_check_redirect_strategy_fallback(monkeypatch):
+    """When the first strategy fails, the next one is tried."""
+    import urllib.error
+    from common_functions.redirects import check_redirect, _FetchResult, ScrapeDoConfig
+
+    monkeypatch.setattr(
+        "common_functions.redirects._fetch_local_direct",
+        lambda domain, verify_ssl, timeout_seconds: (_ for _ in ()).throw(
+            urllib.error.URLError("SSL: CERTIFICATE_VERIFY_FAILED")
+        ),
+    )
+    monkeypatch.setattr(
+        "common_functions.redirects._fetch_remote",
+        lambda domain, config, render: _FetchResult(
+            final_url="https://newdomain.com",
+            status_code=301,
+            redirect_chain=["https://olddomain.com", "https://newdomain.com"],
+            content="# New Domain",
+            redirects=True,
+        ),
+    )
+
+    config = ScrapeDoConfig(api_token="tok123")
+    result = check_redirect(
+        domain="olddomain.com",
+        strategy=["local_direct", "remote_headless"],
+        scrape_do_config=config,
+    )
+    assert result["redirects"] is True
+    assert result["strategy"] == "remote_headless"
+    assert result["final_domain"] == "newdomain.com"
+
+
+def test_check_redirect_all_strategies_fail(monkeypatch):
+    """When every strategy fails, the last exception is re-raised."""
+    import urllib.error
+    from common_functions.redirects import check_redirect, ScrapeDoConfig
+
+    monkeypatch.setattr(
+        "common_functions.redirects._fetch_local_direct",
+        lambda domain, verify_ssl, timeout_seconds: (_ for _ in ()).throw(
+            urllib.error.URLError("local failed")
+        ),
+    )
+    monkeypatch.setattr(
+        "common_functions.redirects._fetch_remote",
+        lambda domain, config, render: (_ for _ in ()).throw(
+            TimeoutError("remote timed out")
+        ),
+    )
+
+    config = ScrapeDoConfig(api_token="tok123")
+    try:
+        check_redirect(
+            domain="failing.com",
+            strategy=["local_direct", "remote_headless"],
+            scrape_do_config=config,
+        )
+    except TimeoutError as exc:
+        assert "remote timed out" in str(exc)
+    else:
+        raise AssertionError("Expected TimeoutError")
+
+
+def test_check_redirect_empty_strategy_list():
+    """An empty strategy list raises ValueError."""
+    from common_functions.redirects import check_redirect
+
+    try:
+        check_redirect(domain="example.com", strategy=[])
+    except ValueError as exc:
+        assert "At least one" in str(exc)
+    else:
+        raise AssertionError("Expected ValueError")

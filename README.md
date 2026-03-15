@@ -175,21 +175,34 @@ from common_functions import check_redirect
 # Local direct (stdlib urllib, fast and free)
 result = check_redirect(domain="olddomain.com")
 
-# Remote via Scrape.do (bypasses bot detection)
+# Remote without JS rendering (fast, low cost)
+result = check_redirect(domain="olddomain.com", strategy="remote_direct")
+
+# Remote with headless browser (handles JS-heavy sites)
 result = check_redirect(domain="olddomain.com", strategy="remote_headless")
+
+# Fallback chain — try local first, then remote headless on failure
+result = check_redirect(
+    domain="www.sns.hackney.sch.uk",
+    strategy=["local_direct", "remote_headless"],
+)
 
 # With organisation verification via LLM
 result = check_redirect(
     domain="www.fitzjohns.camden.sch.uk",
-    strategy="remote_headless",
+    strategy=["local_direct", "remote_headless"],
     verify_org={"name": "Fitzjohn's Primary School", "context": "UK school"},
 )
 ```
 
-**Strategies:**
+**Strategies** (pass one or a list for fallback):
 - `local_direct` — stdlib `urllib`, follows redirects (default)
-- `remote_direct` — Scrape.do without JS rendering
-- `remote_headless` — Scrape.do with headless browser rendering
+- `remote_direct` — Scrape.do **without** JS rendering
+- `remote_headless` — Scrape.do **with** headless browser rendering
+
+SSL verification is disabled by default (`verify_ssl=False`).
+When a list of strategies is provided, each is tried in order;
+network/timeout errors trigger fallback to the next strategy.
 
 **Environment variables (remote strategies):**
 - `SCRAPE_DO_API_KEY` — Scrape.do API token
@@ -200,7 +213,9 @@ result = check_redirect(
 - `XIAOMI_BASE_URL` — API base URL (default `https://api.xiaomimimo.com/v1`)
 - `XIAOMI_MODEL` — model name (default `mimo-v2-flash`)
 
-**Optional dependency:** `pip install common-functions[redirects]` for LLM verification support.
+**Optional dependency:** `pip install common-functions[redirects]` for DSPy-powered LLM verification support.
+
+The verifier uses a typed DSPy `Signature` with `bool`/`str` output fields, giving you automatic output parsing and the ability to optimise prompts with DSPy optimisers (e.g. `MIPROv2`).
 
 ### Dataset Remark (2026-03-04)
 

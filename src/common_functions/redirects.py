@@ -2,20 +2,20 @@
 
 Provides :func:`check_redirect` to detect whether a domain redirects to
 another domain, using local or remote (Scrape.do) fetch strategies.
-Optionally verifies page content against organisation metadata via an
-OpenAI-compatible LLM.
+Optionally verifies page content against organisation metadata via a
+DSPy-powered LLM verifier with prompt-optimisation support.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 import http.client
-import json
 import os
 import ssl
 import urllib.request
 import urllib.error
-from typing import Any, Literal, Required, TypedDict
+import logging
+from typing import Any, Literal, Required, Sequence, TypedDict
 from urllib.parse import quote, urlparse
 
 
@@ -283,43 +283,69 @@ def _fetch_remote(
     )
 
 
-_VERIFY_SYSTEM_PROMPT = """You are verifying whether a webpage belongs to a specific organisation.
-
-Organisation: {name}
-{postcode_line}Context: {context}
-
-Analyse the page content below and determine if this page belongs to the organisation described above.
-
-Respond with JSON only: {{"verified": true/false, "reason": "brief explanation"}}"""
-
-
-def _make_openai_client(api_key: str, base_url: str):
-    """Create an OpenAI client (lazy import).
-
-    Args:
-        api_key: API key for the LLM service.
-        base_url: Base URL for the OpenAI-compatible API.
+def _get_dspy():
+    """Lazy-import dspy.
 
     Returns:
-        An ``openai.OpenAI`` client instance.
+        The ``dspy`` module.
 
     Raises:
-        ImportError: If the ``openai`` package is not installed.
+        ImportError: If the ``dspy`` package is not installed.
     """
     try:
-        from openai import OpenAI
+        import dspy
     except ImportError:
         raise ImportError(
-            "The 'openai' package is required for organisation verification. "
+            "The 'dspy' package is required for organisation verification. "
             "Install it with: pip install common-functions[redirects]"
         )
-    return OpenAI(api_key=api_key, base_url=base_url)
+    return dspy
+
+
+def _build_org_verification_signature(org_info: OrgInfo):
+    """Build a DSPy Signature class for organisation verification.
+
+    The signature's docstring is dynamically set from *org_info* so that
+    the LLM receives organisation context as task instructions.
+
+    Args:
+        org_info: Organisation metadata for verification.
+
+    Returns:
+        A ``dspy.Signature`` subclass tailored to the organisation.
+    """
+    dspy = _get_dspy()
+
+    postcode = org_info.get("postcode", "")
+    postcode_line = f"Postcode: {postcode}\n" if postcode else ""
+
+    instructions = (
+        f"You are verifying whether a webpage belongs to a specific organisation.\n\n"
+        f"Organisation: {org_info['name']}\n"
+        f"{postcode_line}"
+        f"Context: {org_info['context']}\n\n"
+        f"Analyse the page content and determine if it belongs to this organisation."
+    )
+
+    class OrgVerification(dspy.Signature):
+        __doc__ = instructions
+
+        page_content: str = dspy.InputField(desc="webpage content (HTML or markdown)")
+        verified: bool = dspy.OutputField(desc="whether the page belongs to the organisation")
+        reason: str = dspy.OutputField(desc="brief explanation for the verdict")
+
+    return OrgVerification
 
 
 def _verify_org_content(
     content: str, org_info: OrgInfo, config: LlmVerifierConfig
 ) -> tuple[bool, str]:
-    """Verify page content belongs to the expected organisation via LLM.
+    """Verify page content belongs to the expected organisation via DSPy.
+
+    Uses a typed DSPy :class:`~dspy.Signature` with ``bool`` and ``str``
+    output fields so the LLM response is automatically parsed and
+    validated.  The configured LM is scoped via :func:`dspy.context` to
+    avoid mutating global state.
 
     Args:
         content: Page content (HTML or markdown).
@@ -327,66 +353,206 @@ def _verify_org_content(
         config: LLM API configuration.
 
     Returns:
-        Tuple of (verified, reason). If the LLM response cannot be parsed,
-        returns ``(False, "LLM response could not be parsed")``.
+        Tuple of (verified, reason).
     """
-    postcode = org_info.get("postcode", "")
-    postcode_line = f"Postcode: {postcode}\n" if postcode else ""
+    dspy = _get_dspy()
 
-    system_prompt = _VERIFY_SYSTEM_PROMPT.format(
-        name=org_info["name"],
-        postcode_line=postcode_line,
-        context=org_info["context"],
+    lm = dspy.LM(
+        f"openai/{config.model}",
+        api_key=config.api_key,
+        api_base=config.base_url,
+        temperature=0.1,
+        max_tokens=256,
+        cache=False,
     )
+
+    signature = _build_org_verification_signature(org_info)
+    predictor = dspy.Predict(signature)
 
     truncated_content = content[:4000]
 
-    client = _make_openai_client(api_key=config.api_key, base_url=config.base_url)
-    completion = client.chat.completions.create(
-        model=config.model,
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": truncated_content},
-        ],
-        temperature=0.1,
-        max_completion_tokens=256,
-        response_format={"type": "json_object"},
-    )
+    with dspy.context(lm=lm):
+        result = predictor(page_content=truncated_content)
 
-    raw = completion.choices[0].message.content
-    try:
-        data = json.loads(raw)
-        return bool(data["verified"]), str(data["reason"])
-    except (json.JSONDecodeError, KeyError, TypeError):
-        return False, "LLM response could not be parsed"
+    return bool(result.verified), str(result.reason)
+
+
+_log = logging.getLogger(__name__)
+
+
+def _execute_strategy(
+    strategy: RedirectStrategy,
+    domain: str,
+    scrape_do_config: ScrapeDoConfig | None,
+    verify_ssl: bool,
+    timeout_seconds: int,
+) -> _FetchResult:
+    """Run a single fetch strategy and return the result.
+
+    Args:
+        strategy: Which strategy to execute.
+        domain: Normalized domain name.
+        scrape_do_config: Scrape.do config (required for remote strategies).
+        verify_ssl: SSL verification flag (local only).
+        timeout_seconds: Connection timeout (local only).
+
+    Returns:
+        :class:`_FetchResult` from the strategy.
+
+    Raises:
+        ValueError: If the strategy name is not recognised.
+    """
+    if strategy == "local_direct":
+        return _fetch_local_direct(domain, verify_ssl, timeout_seconds)
+    if strategy in ("remote_direct", "remote_headless"):
+        if scrape_do_config is None:
+            scrape_do_config = ScrapeDoConfig.from_env()
+        render = strategy == "remote_headless"
+        return _fetch_remote(domain, scrape_do_config, render)
+    raise ValueError(f"Unsupported redirect strategy: {strategy!r}")
 
 
 def check_redirect(
     *,
     domain: str,
-    strategy: RedirectStrategy = "local_direct",
+    strategy: RedirectStrategy | Sequence[RedirectStrategy] = "local_direct",
     scrape_do_config: ScrapeDoConfig | None = None,
     verify_org: OrgInfo | None = None,
     llm_config: LlmVerifierConfig | None = None,
-    verify_ssl: bool = True,
+    verify_ssl: bool = False,
     timeout_seconds: int = 20,
 ) -> dict[str, Any]:
     """Check whether a domain redirects to another domain.
 
     Fetches the domain using the specified strategy and optionally verifies
-    that the page content belongs to a given organisation using an LLM.
+    that the page content belongs to a given organisation using a DSPy-powered
+    LLM verifier.
+
+    When *strategy* is a sequence, strategies are tried in order.  If a
+    strategy raises a network or timeout error the next one is attempted.
+    The result from the first successful strategy is returned.  If every
+    strategy fails, the last exception is re-raised.
+
+    The two remote strategy names control headless rendering:
+
+    * ``"remote_direct"`` — Scrape.do fetches the page **without** a
+      browser (fast, low cost).
+    * ``"remote_headless"`` — Scrape.do renders the page in a **headless
+      browser** (handles JS-heavy sites, higher cost).
+
+    Examples:
+        **Minimal — local redirect check (no API keys needed):**
+
+        >>> result = check_redirect(domain="olddomain.com")
+        >>> result["redirects"]
+        True
+        >>> result["final_domain"]
+        'newdomain.com'
+
+        **Fallback chain — try local first, then remote headless:**
+
+        >>> result = check_redirect(
+        ...     domain="www.sns.hackney.sch.uk",
+        ...     strategy=["local_direct", "remote_headless"],
+        ... )
+
+        **Remote without headless rendering** (fast, no JS):
+
+        >>> result = check_redirect(
+        ...     domain="olddomain.com",
+        ...     strategy="remote_direct",
+        ... )
+
+        **Remote with headless rendering** (JS-heavy sites):
+
+        >>> result = check_redirect(
+        ...     domain="olddomain.com",
+        ...     strategy="remote_headless",
+        ... )
+
+        **Remote with explicit** :class:`ScrapeDoConfig` **and custom
+        timeout:**
+
+        >>> from common_functions import ScrapeDoConfig
+        >>> config = ScrapeDoConfig(
+        ...     api_token="tok_xxx",
+        ...     geo_code="us",
+        ...     timeout_seconds=60,
+        ... )
+        >>> result = check_redirect(
+        ...     domain="olddomain.com",
+        ...     strategy="remote_headless",
+        ...     scrape_do_config=config,
+        ... )
+
+        **Full fallback chain with explicit Scrape.do config:**
+
+        >>> result = check_redirect(
+        ...     domain="www.sns.hackney.sch.uk",
+        ...     strategy=["local_direct", "remote_headless"],
+        ...     scrape_do_config=ScrapeDoConfig(
+        ...         api_token="tok_xxx",
+        ...         timeout_seconds=60,
+        ...     ),
+        ... )
+
+        **With LLM organisation verification — auto-configured from env
+        vars** (requires ``XIAOMI_API_KEY``):
+
+        >>> result = check_redirect(
+        ...     domain="www.sns.hackney.sch.uk",
+        ...     verify_org={
+        ...         "name": "Stoke Newington School",
+        ...         "context": "UK secondary school in Hackney, London",
+        ...     },
+        ... )
+        >>> result["verified"]
+        True
+        >>> result["verification_reason"]
+        'Page title and meta tags match the school...'
+
+        **With explicit** :class:`LlmVerifierConfig` **(e.g. different
+        model or provider):**
+
+        >>> from common_functions import LlmVerifierConfig
+        >>> llm_cfg = LlmVerifierConfig(
+        ...     api_key="sk-xxx",
+        ...     base_url="https://api.openai.com/v1",
+        ...     model="gpt-4o-mini",
+        ... )
+        >>> result = check_redirect(
+        ...     domain="www.sns.hackney.sch.uk",
+        ...     strategy=["local_direct", "remote_headless"],
+        ...     scrape_do_config=ScrapeDoConfig(api_token="tok_xxx"),
+        ...     verify_org={
+        ...         "name": "Stoke Newington School",
+        ...         "context": "UK secondary school in Hackney, London",
+        ...     },
+        ...     llm_config=llm_cfg,
+        ... )
+
+        **Full result dict structure:**
+
+        >>> sorted(result.keys())
+        ['content', 'domain', 'final_domain', 'redirect_chain',
+         'redirects', 'status_code', 'strategy', 'verification_reason',
+         'verified']
 
     Args:
         domain: The domain to check (e.g. ``"www.example.com"``).
-        strategy: Fetch strategy — ``"local_direct"``, ``"remote_direct"``,
-            or ``"remote_headless"``.
+        strategy: Fetch strategy or ordered sequence of strategies to try.
+            A single string or a list/tuple of:
+            ``"local_direct"`` — stdlib urllib, follows redirects;
+            ``"remote_direct"`` — Scrape.do **without** JS rendering;
+            ``"remote_headless"`` — Scrape.do **with** headless browser.
         scrape_do_config: Configuration for Scrape.do API. Auto-initialized
             from env vars if omitted for a remote strategy.
         verify_org: Optional organisation metadata for LLM content
             verification. Pass ``None`` to skip verification.
         llm_config: Configuration for the LLM verifier. Auto-initialized
             from env vars if omitted when ``verify_org`` is provided.
-        verify_ssl: Whether to verify SSL certificates (``local_direct`` only).
+        verify_ssl: Whether to verify SSL certificates (``local_direct``
+            only). Defaults to ``False``.
         timeout_seconds: Connection timeout in seconds (``local_direct`` only).
             Remote strategies use ``ScrapeDoConfig.timeout_seconds``.
 
@@ -397,22 +563,50 @@ def check_redirect(
 
     Raises:
         ValueError: If required config is missing or strategy is unsupported.
-        ImportError: If ``verify_org`` is provided but ``openai`` is not installed.
+        ImportError: If ``verify_org`` is provided but ``dspy`` is not
+            installed.
         urllib.error.URLError: On network errors (``local_direct``).
         http.client.HTTPException: On network errors (remote strategies).
         socket.timeout: On connection timeout.
     """
     domain = _normalize_domain(domain)
 
-    if strategy == "local_direct":
-        result = _fetch_local_direct(domain, verify_ssl, timeout_seconds)
-    elif strategy in ("remote_direct", "remote_headless"):
-        if scrape_do_config is None:
-            scrape_do_config = ScrapeDoConfig.from_env()
-        render = strategy == "remote_headless"
-        result = _fetch_remote(domain, scrape_do_config, render)
+    # Normalise strategy to a list for uniform handling.
+    strategies: Sequence[RedirectStrategy]
+    if isinstance(strategy, str):
+        strategies = [strategy]  # type: ignore[list-item]
     else:
-        raise ValueError(f"Unsupported redirect strategy: {strategy!r}")
+        strategies = strategy
+
+    if not strategies:
+        raise ValueError("At least one strategy must be provided.")
+
+    # Try each strategy in order; fall back on network/timeout errors.
+    result: _FetchResult | None = None
+    used_strategy: RedirectStrategy | None = None
+    last_exc: Exception | None = None
+
+    for strat in strategies:
+        try:
+            result = _execute_strategy(
+                strat, domain, scrape_do_config, verify_ssl, timeout_seconds,
+            )
+            used_strategy = strat
+            break
+        except (
+            urllib.error.URLError,
+            http.client.HTTPException,
+            OSError,
+            TimeoutError,
+        ) as exc:
+            last_exc = exc
+            _log.debug(
+                "Strategy %r failed for %s: %s — trying next",
+                strat, domain, exc,
+            )
+
+    if result is None:
+        raise last_exc  # type: ignore[misc]
 
     final_domain = urlparse(result.final_url).netloc
 
@@ -431,7 +625,7 @@ def check_redirect(
         "final_domain": final_domain,
         "redirect_chain": result.redirect_chain,
         "status_code": result.status_code,
-        "strategy": strategy,
+        "strategy": used_strategy,
         "content": result.content,
         "verified": verified,
         "verification_reason": verification_reason,
