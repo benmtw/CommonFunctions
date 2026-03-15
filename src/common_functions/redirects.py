@@ -9,12 +9,13 @@ OpenAI-compatible LLM.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import http.client
 import os
 import ssl
 import urllib.request
 import urllib.error
 from typing import Any, Literal, Required, TypedDict
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 
 
 @dataclass(frozen=True)
@@ -219,3 +220,63 @@ def _normalize_domain(domain: str) -> str:
     if any(c.isspace() for c in domain):
         raise ValueError(f"Invalid domain (contains whitespace): {domain!r}")
     return domain
+
+
+def _fetch_remote(
+    domain: str, config: ScrapeDoConfig, render: bool
+) -> _FetchResult:
+    """Fetch a domain via the Scrape.do API.
+
+    Args:
+        domain: Normalized domain name (no scheme).
+        config: Scrape.do API configuration.
+        render: If True, use headless browser rendering.
+
+    Returns:
+        :class:`_FetchResult` with markdown content.
+
+    Raises:
+        http.client.HTTPException: On connection or protocol errors.
+        socket.timeout: On connection timeout.
+    """
+    url = f"https://{domain}"
+    encoded_url = quote(url, safe="")
+    render_val = "true" if render else "false"
+    path = (
+        f"/?token={config.api_token}"
+        f"&url={encoded_url}"
+        f"&geoCode={config.geo_code}"
+        f"&render={render_val}"
+        f"&output=markdown"
+        f"&transparentResponse=true"
+    )
+
+    conn = http.client.HTTPSConnection(
+        "api.scrape.do", timeout=config.timeout_seconds
+    )
+    try:
+        conn.request("GET", path)
+        resp = conn.getresponse()
+        body = resp.read().decode("utf-8", errors="replace")
+    finally:
+        conn.close()
+
+    target_url = resp.getheader("Scrape.do-Target-Url", url)
+    resolved_url = resp.getheader("Scrape.do-Resolved-Url", url)
+    initial_status_str = resp.getheader("Scrape.do-Initial-Status-Code", "200")
+    initial_status = int(initial_status_str) if initial_status_str.isdigit() else 200
+
+    redirects = target_url != resolved_url
+
+    if redirects:
+        chain = [target_url, resolved_url]
+    else:
+        chain = [target_url]
+
+    return _FetchResult(
+        final_url=resolved_url,
+        status_code=initial_status,
+        redirect_chain=chain,
+        content=body,
+        redirects=redirects,
+    )

@@ -140,3 +140,97 @@ def test_redirect_tracker_loop():
         assert "Too many redirects" in str(exc)
     else:
         raise AssertionError("Expected URLError for redirect loop")
+
+
+def test_fetch_remote_no_redirect(monkeypatch):
+    """Scrape.do returns same target and resolved URL."""
+    from common_functions.redirects import _fetch_remote, ScrapeDoConfig, _FetchResult
+    import http.client
+
+    class _FakeResponse:
+        status = 200
+        reason = "OK"
+
+        def getheader(self, name, default=None):
+            headers = {
+                "Scrape.do-Target-Url": "https://example.com",
+                "Scrape.do-Resolved-Url": "https://example.com",
+                "Scrape.do-Initial-Status-Code": "200",
+            }
+            return headers.get(name, default)
+
+        def read(self):
+            return b"# Example Page"
+
+    class _FakeConnection:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def request(self, method, path):
+            pass
+
+        def getresponse(self):
+            return _FakeResponse()
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(http.client, "HTTPSConnection", _FakeConnection)
+
+    config = ScrapeDoConfig(api_token="tok123")
+    result = _fetch_remote("example.com", config, render=False)
+
+    assert isinstance(result, _FetchResult)
+    assert result.redirects is False
+    assert result.final_url == "https://example.com"
+    assert result.status_code == 200
+    assert result.content == "# Example Page"
+    assert result.redirect_chain == ["https://example.com"]
+
+
+def test_fetch_remote_with_redirect(monkeypatch):
+    """Scrape.do detects redirect: target != resolved."""
+    from common_functions.redirects import _fetch_remote, ScrapeDoConfig
+    import http.client
+
+    class _FakeResponse:
+        status = 200
+        reason = "OK"
+
+        def getheader(self, name, default=None):
+            headers = {
+                "Scrape.do-Target-Url": "https://olddomain.com",
+                "Scrape.do-Resolved-Url": "https://newdomain.com",
+                "Scrape.do-Initial-Status-Code": "301",
+            }
+            return headers.get(name, default)
+
+        def read(self):
+            return b"# New Domain Page"
+
+    class _FakeConnection:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def request(self, method, path):
+            pass
+
+        def getresponse(self):
+            return _FakeResponse()
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(http.client, "HTTPSConnection", _FakeConnection)
+
+    config = ScrapeDoConfig(api_token="tok123")
+    result = _fetch_remote("olddomain.com", config, render=True)
+
+    assert result.redirects is True
+    assert result.final_url == "https://newdomain.com"
+    assert result.status_code == 301
+    assert result.redirect_chain == [
+        "https://olddomain.com",
+        "https://newdomain.com",
+    ]
+    assert result.content == "# New Domain Page"
