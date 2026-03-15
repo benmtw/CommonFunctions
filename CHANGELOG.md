@@ -24,6 +24,11 @@ All notable changes to this project will be documented in this file.
   - `src/common_functions/lookups.py`
   - `lookup_domain(...)`
   - `lookup_email(...)`
+- Domain redirect detection module:
+  - `src/common_functions/redirects.py`
+  - `check_redirect(...)` with strategies: `local_direct`, `remote_direct`, `remote_headless`
+  - Optional LLM-based organisation verification via OpenAI-compatible API
+  - `ScrapeDoConfig`, `LlmVerifierConfig`, `OrgInfo` config types
 
 ### Changed
 - Updated developer dependencies to include `pdoc` and `pre-commit`.

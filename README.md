@@ -165,6 +165,43 @@ For `source="ratings"`, you can either:
   - `CF_D1_DATABASE_ID`
   - `CF_API_TOKEN`
 
+### Domain Redirect Detection
+
+Check whether a domain redirects to another domain using configurable strategies:
+
+```python
+from common_functions import check_redirect
+
+# Local direct (stdlib urllib, fast and free)
+result = check_redirect(domain="olddomain.com")
+
+# Remote via Scrape.do (bypasses bot detection)
+result = check_redirect(domain="olddomain.com", strategy="remote_headless")
+
+# With organisation verification via LLM
+result = check_redirect(
+    domain="www.fitzjohns.camden.sch.uk",
+    strategy="remote_headless",
+    verify_org={"name": "Fitzjohn's Primary School", "context": "UK school"},
+)
+```
+
+**Strategies:**
+- `local_direct` — stdlib `urllib`, follows redirects (default)
+- `remote_direct` — Scrape.do without JS rendering
+- `remote_headless` — Scrape.do with headless browser rendering
+
+**Environment variables (remote strategies):**
+- `SCRAPE_DO_API_TOKEN` — Scrape.do API token
+- `SCRAPE_DO_GEO_CODE` — proxy country (default `gb`)
+
+**Environment variables (LLM verification):**
+- `MIMO_API_KEY` — MiMo API key
+- `MIMO_BASE_URL` — API base URL (default `https://api.xiaomimimo.com/v1`)
+- `MIMO_MODEL` — model name (default `mimo-v2-flash`)
+
+**Optional dependency:** `pip install common-functions[redirects]` for LLM verification support.
+
 ### Dataset Remark (2026-03-04)
 
 The disposable domain dataset at `src/common_functions/data/disposable_domains.txt` was refreshed from the top 3 starred, actively maintained GitHub sources below, then merged and deduplicated:
