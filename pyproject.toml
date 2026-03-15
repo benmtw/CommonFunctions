@@ -26,6 +26,9 @@ dev = [
   "pdoc>=14.0.0",
   "pre-commit>=3.0.0",
 ]
+redirects = [
+  "openai>=1.0.0",
+]
 
 [tool.setuptools]
 package-dir = { "" = "src" }

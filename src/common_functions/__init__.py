@@ -22,6 +22,12 @@ from .hunter import (
     get_email_verification_cached,
 )
 from .lookups import lookup_domain, lookup_email
+from .redirects import (
+    check_redirect,
+    LlmVerifierConfig,
+    OrgInfo,
+    ScrapeDoConfig,
+)
 
 __all__ = [
     "get_free_provider_domains",
@@ -42,4 +48,8 @@ __all__ = [
     "get_domain_or_email_info_cached",
     "lookup_domain",
     "lookup_email",
+    "check_redirect",
+    "ScrapeDoConfig",
+    "LlmVerifierConfig",
+    "OrgInfo",
 ]
